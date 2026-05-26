@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>高優計畫經費管理系統</title>
+  
+  <!-- 引入 Tailwind CSS 與 FontAwesome 圖示 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- 引入 React 與 Babel -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- 引入 Firebase 資料庫 SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f5f5f4; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a29e; }
+    .fade-in { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-[#FDFBF7] min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const ADMIN_PASSWORD = "114-2";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDibvsYbW5gC16EYQis1rzFSxoQx0gNUp0",
+      authDomain: "hight-money-9f10c.firebaseapp.com",
+      projectId: "hight-money-9f10c",
+      storageBucket: "hight-money-9f10c.firebasestorage.app",
+      messagingSenderId: "1079112091697",
+      appId: "1:1079112091697:web:360bac2e96f4d18b596d10",
+      measurementId: "G-S4RBDNHXBL"
+    };
+
+    let app, auth, db;
+    try {
+      if (firebaseConfig.projectId) {
+        app = firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        auth.setPersistence(firebase.auth.Auth.Persistence.NONE); 
+        db = firebase.firestore();
+      }
+    } catch(e) {
+      console.error("Firebase 初始化失敗:", e);
+    }
+
+    const { useState, useMemo, useEffect, useRef } = React;
+
+    const INITIAL_PROJECT_DATA = [
+      {
+        id: 'A',
+        name: 'A類計畫 (課程與教學創新)',
+        subjects: [
+          {
+            name: '校訂必修',
+            courses: [
+              { id: 'A-1-1', name: '府城傳情', budgets: [ { id: 'A-1-1-1', category: '印刷費', desc: '明信片印刷費 115份', total: 9200 }, { id: 'A-1-1-2', category: '膳宿費', desc: '校外參訪戶外踏查用膳費 118人次', total: 11800 }, { id: 'A-1-1-3', category: '租車費', desc: '戶外踏查參訪用 3臺', total: 23700 }, { id: 'A-1-1-4', category: '材料費', desc: '課程所需實作材料 115人次', total: 17250 } ] },
+              { id: 'A-1-2', name: '專題研究', budgets: [ { id: 'A-1-2-1', category: '講座鐘點費', desc: '外聘專家講師增能講座 4節', total: 8000 } ] }
+            ]
+          },
+          {
+            name: '多元選修',
+            courses: [
+              { id: 'A-2-1', name: '生活與數學桌遊', budgets: [ { id: 'A-2-1-1', category: '講座鐘點費', desc: '外聘專家講師 16節', total: 32000 }, { id: 'A-2-1-2', category: '講座鐘點費', desc: '寒假營隊內聘或外聘 12節', total: 6600 }, { id: 'A-2-1-3', category: '膳宿費', desc: '寒假營隊用膳費 32人次', total: 3200 }, { id: 'A-2-1-4', category: '國內旅費、短程車資、運費', desc: '外聘講師高鐵來回 1人次', total: 2700 } ] },
+              { id: 'A-2-2', name: '英文真遊趣', budgets: [ { id: 'A-2-2-1', category: '講座鐘點費', desc: '外聘專家講師 6節', total: 12000 }, { id: 'A-2-2-2', category: '授課鐘點費', desc: '內聘講座 2節', total: 1100 }, { id: 'A-2-2-3', category: '講座鐘點費', desc: '寒假營隊內聘或外聘 6節', total: 3300 }, { id: 'A-2-2-4', category: '膳宿費', desc: '寒假營隊用膳費 27人次', total: 2700 }, { id: 'A-2-2-5', category: '材料費', desc: '課程所需實作材料 25人次', total: 3750 } ] },
+              { id: 'A-2-5', name: '悅讀你的世界', budgets: [ { id: 'A-2-5-1', category: '講座鐘點費', desc: '外聘專家講師 3節', total: 6000 }, { id: 'A-2-5-2', category: '講座鐘點費', desc: '寒假營隊內聘或外聘 14節', total: 7700 }, { id: 'A-2-5-3', category: '膳宿費', desc: '寒假營隊用膳費 33人次', total: 3300 }, { id: 'A-2-5-4', category: '國內旅費、短程車資、運費', desc: '外聘講師高鐵來回 1人次', total: 2700 }, { id: 'A-2-5-5', category: '租車費', desc: '戶外踏查參訪用 1臺', total: 7900 } ] },
+              { id: 'A-2-6', name: '島嶼思辨', budgets: [ { id: 'A-2-6-1', category: '講座鐘點費', desc: '外聘專家講師 2節', total: 4000 }, { id: 'A-2-6-2', category: '印刷費', desc: '策展用海報文宣 20份', total: 1600 }, { id: 'A-2-6-3', category: '國內旅費、短程車資、運費', desc: '外聘講師高鐵來回 1人次', total: 2700 }, { id: 'A-2-6-4', category: '物品費', desc: '課程成果策展用燈具 4組', total: 2000 } ] }
+            ]
+          },
+          {
+            name: '加深加廣課程',
+            courses: [
+              { id: 'A-3-1', name: '社會科探究與實作', budgets: [ { id: 'A-3-1-1', category: '講座鐘點費', desc: '外聘專家講師 10節', total: 20000 }, { id: 'A-3-1-2', category: '授課鐘點費', desc: '內聘講座 6節', total: 3300 }, { id: 'A-3-1-3', category: '講座鐘點費', desc: '寒假營隊內聘或外聘 25節', total: 13750 }, { id: 'A-3-1-4', category: '印刷費', desc: '寒假營隊手冊 100份', total: 8000 }, { id: 'A-3-1-5', category: '膳宿費', desc: '寒假營隊用膳費 130人次', total: 13000 }, { id: 'A-3-1-6', category: '國內旅費、短程車資、運費', desc: '外聘講師高鐵來回 2人次', total: 5400 }, { id: 'A-3-1-7', category: '租車費', desc: '戶外踏查參訪用 2臺', total: 15800 }, { id: 'A-3-1-8', category: '租車費(船)', desc: '高雄文化遊艇巡遊租船費', total: 17500 }, { id: 'A-3-1-9', category: '材料費', desc: '成果發表與寒假營隊 120人次', total: 18000 }, { id: 'A-3-1-10', category: '設備維護費', desc: '教學設備維修與維護', total: 15000 } ] },
+              { id: 'A-3-2', name: '自然科探究與實作', budgets: [ { id: 'A-3-2-1', category: '講座鐘點費', desc: '寒假營隊內聘或外聘 4節', total: 2200 }, { id: 'A-3-2-2', category: '膳宿費', desc: '寒假營隊用膳費 33人次', total: 3300 }, { id: 'A-3-2-3', category: '材料費', desc: '課程所需實作材料 30人次', total: 4500 } ] },
+              { id: 'A-3-3', name: '工程設計專題', budgets: [ { id: 'A-3-3-1', category: '材料費', desc: '課程所需實作材料 80人次', total: 12000 }, { id: 'A-3-3-2', category: '物品費', desc: '溫控烙鐵組 6組', total: 18000 }, { id: 'A-3-3-3', category: '設備維護費', desc: '教學設備維修與維護', total: 15000 }, { id: 'A-3-3-4', category: '設備費', desc: '立式帶鋸機、圓鋸機、微調車床等', total: 450000 } ] }
+            ]
+          },
+          {
+            name: '彈性學習',
+            courses: [
+              { id: 'A-4-1', name: '選手培訓', budgets: [ { id: 'A-4-1-1', category: '授課鐘點費', desc: '辦理選手培訓內聘講師 20節', total: 14600 } ] }
+            ]
+          },
+          {
+            name: '計畫共同經費',
+            courses: [
+              { id: 'A-Comm', name: 'A類經常門共同項目', budgets: [ { id: 'A-Comm-1', category: '雜支', desc: '成果發表耗材、辦公事務、郵資等', total: 14240 }, { id: 'A-Comm-2', category: '全民健康保險補充保費', desc: '依鐘點費總額2.11%編列', total: 2840 } ] }
+            ]
+          },
+          {
+            name: '待分類區 (匯入暫存)',
+            courses: [
+              { id: 'A-Pending', name: '未指定科目', budgets: [ { id: 'A-Pending-1', category: '待分類', desc: '系統無法自動歸類的項目，請點擊鉛筆手動移動至正確科目', total: 0 } ] }
+            ]
+          }
+        ]
+      },
+      {
+        id: 'B',
+        name: 'B類計畫 (教師社群與專業發展)',
+        subjects: [
+          {
+            name: '單科社群',
+            courses: [
+              { id: 'B-1-1', name: '數學科社群', budgets: [ { id: 'B-1-1-1', category: '講座鐘點費', desc: '外聘增能講座 3節', total: 6000 }, { id: 'B-1-1-2', category: '材料費', desc: '社群共備研習用材料 7份', total: 1050 } ] },
+              { id: 'B-1-2', name: '英文科社群', budgets: [ { id: 'B-1-2-1', category: '講座鐘點費', desc: '外聘增能講座 2節', total: 4000 } ] },
+              { id: 'B-1-3', name: '國文科社群', budgets: [ { id: 'B-1-3-1', category: '講座鐘點費', desc: '外聘增能講座 4節', total: 8000 }, { id: 'B-1-3-2', category: '印刷費', desc: '研習資料與手冊 60份', total: 4800 }, { id: 'B-1-3-3', category: '國內旅費、短程車資、運費', desc: '外聘講師高鐵來回 2人次', total: 5400 } ] }
+            ]
+          },
+          {
+            name: '跨科研習',
+            courses: [
+              { id: 'B-2-1', name: '社會科跨領域', budgets: [ { id: 'B-2-1-1', category: '講座鐘點費', desc: '外聘增能講座 9節', total: 18000 }, { id: 'B-2-1-2', category: '印刷費', desc: '研習資料與手冊 20份', total: 1600 }, { id: 'B-2-1-3', category: '膳宿費', desc: '跨科會議用膳費 20人次', total: 2000 }, { id: 'B-2-1-4', category: '國內旅費、短程車資、運費', desc: '外聘講師高鐵來回 2人次', total: 5400 }, { id: 'B-2-1-5', category: '材料費', desc: '社群共備研習用材料 20份', total: 3000 } ] },
+              { id: 'B-3-1', name: '學生自主學習共備', budgets: [ { id: 'B-3-1-1', category: '講座鐘點費', desc: '外聘增能講座 3節', total: 6000 }, { id: 'B-3-1-2', category: '印刷費', desc: '研習資料與手冊 50份', total: 4000 } ] }
+            ]
+          },
+          {
+            name: '計畫共同經費',
+            courses: [
+              { id: 'B-Comm', name: 'B類經常門共同項目', budgets: [ { id: 'B-Comm-1', category: '雜支', desc: '資訊耗材、文具、紙張等', total: 4513 }, { id: 'B-Comm-2', category: '全民健康保險補充保費', desc: '依鐘點費總額2.11%編列', total: 887 } ] }
+            ]
+          },
+          {
+            name: '待分類區 (匯入暫存)',
+            courses: [
+              { id: 'B-Pending', name: '未指定科目', budgets: [ { id: 'B-Pending-1', category: '待分類', desc: '系統無法自動歸類的項目，請點擊鉛筆手動移動至正確科目', total: 0 } ] }
+            ]
+          }
+        ]
+      },
+      {
+        id: 'C',
+        name: 'C類計畫 (學生學習與輔導)',
+        subjects: [
+          {
+            name: '增能與發展',
+            courses: [
+              { id: 'C-1', name: '學習歷程檔案工作坊', budgets: [ { id: 'C-1-1', category: '講座鐘點費', desc: '教師外聘講師增能 2節', total: 4000 }, { id: 'C-1-2', category: '印刷費', desc: '會議與工作坊資料 71份', total: 5680 }, { id: 'C-1-3', category: '膳宿費', desc: '會議及講座膳費 97人次', total: 9700 }, { id: 'C-1-4', category: '國內旅費、短程車資、運費', desc: '外聘講師交通費 1人次', total: 2700 } ] },
+              { id: 'C-2', name: '課程發展委員會', budgets: [ { id: 'C-2-1', category: '諮詢費、輔導費、指導費', desc: '專家學者諮詢 3人次', total: 7500 }, { id: 'C-2-2', category: '膳宿費', desc: '委員與學員膳食 40人次', total: 4000 }, { id: 'C-2-3', category: '國內旅費、短程車資、運費', desc: '委員交通費 2人次', total: 5400 } ] }
+            ]
+          },
+          {
+            name: '學生補助與設備',
+            courses: [
+              { id: 'C-3', name: '獎助學金與設備購置', budgets: [ { id: 'C-3-1', category: '學生獎助學金', desc: '成績優異獎學金 9人次', total: 90000 }, { id: 'C-3-2', category: '設備費', desc: '55吋觸控式螢幕解說機 1臺', total: 49000 } ] }
+            ]
+          },
+          {
+            name: '計畫共同經費',
+            courses: [
+              { id: 'C-Comm', name: 'C類經常門共同項目', budgets: [ { id: 'C-Comm-1', category: '雜支', desc: '研習、會議用紙張文具等', total: 4617 }, { id: 'C-Comm-2', category: '全民健康保險補充保費', desc: '依鐘點費總額2.11%編列', total: 243 } ] }
+            ]
+          },
+          {
+            name: '待分類區 (匯入暫存)',
+            courses: [
+              { id: 'C-Pending', name: '未指定科目', budgets: [ { id: 'C-Pending-1', category: '待分類', desc: '系統無法自動歸類的項目，請點擊鉛筆手動移動至正確科目', total: 0 } ] }
+            ]
+          }
+        ]
+      }
+    ];
+
+    const INITIAL_RECORDS = {};
+
+    const formatCurrency = (amount) => {
+      return new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits: 0 }).format(amount);
+    };
+
+    function App() {
+      const [projectData, setProjectData] = useState(INITIAL_PROJECT_DATA);
+      const [records, setRecords] = useState(INITIAL_RECORDS);
+      
+      const [newInputs, setNewInputs] = useState({});
+      const [editingRecordId, setEditingRecordId] = useState(null);
+      const [editForm, setEditForm] = useState({ amount: '', note: '', targetBudgetId: '' });
+      const [currentView, setCurrentView] = useState('DASHBOARD');
+      const [activePlanId, setActivePlanId] = useState(null);
+      const [activeCourseId, setActiveCourseId] = useState(null);
+
+      const [isSyncing, setIsSyncing] = useState(true);
+      const [isOnline, setIsOnline] = useState(false);
+      const [dbErrorMsg, setDbErrorMsg] = useState(''); 
+
+      const [isAdmin, setIsAdmin] = useState(false);
+      const [showLogin, setShowLogin] = useState(false);
+      const [passwordInput, setPasswordInput] = useState('');
+      const [alertMsg, setAlertMsg] = useState(null);
+      const [confirmConfig, setConfirmConfig] = useState(null);
+      const [importFile, setImportFile] = useState(null);
+      
+      const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+      const [newCategoryForm, setNewCategoryForm] = useState({ category: '', desc: '', total: '' });
+
+      const fileInputRef = useRef(null);
+
+      // ✅ 修正版 useEffect：移除匿名登入，直接讀取，防止空資料覆蓋
+      useEffect(() => {
+        if (!auth || !db) {
+          const localData = localStorage.getItem('budget_records');
+          const localSchema = localStorage.getItem('budget_schema');
+          if(localData) setRecords(JSON.parse(localData));
+          if(localSchema) setProjectData(JSON.parse(localSchema));
+          setIsSyncing(false);
+          setIsOnline(false);
+          setDbErrorMsg('未連線資料庫');
+          return;
+        }
+
+        let unsubscribe = () => {};
+
+        const docRef = db.collection('public_data').doc('budget_main_records');
+        unsubscribe = docRef.onSnapshot((docSnap) => {
+          setIsSyncing(false);
+          setIsOnline(true);
+          setDbErrorMsg('');
+
+          if (docSnap.exists) {
+            const serverData = docSnap.data();
+            // 只有雲端真的有紀錄才更新，空的就保留預設值，不覆蓋成 0
+            if (serverData && serverData.data && Object.keys(serverData.data).length > 0) {
+              setRecords(serverData.data);
+            }
+            if (serverData && serverData.schema && serverData.schema.length > 0) {
+              setProjectData(serverData.schema);
+            }
+          } else {
+            // 雲端沒有文件，初始化一筆空文件（保留預設架構）
+            docRef.set({ data: INITIAL_RECORDS, schema: INITIAL_PROJECT_DATA }).catch(err => console.warn("初始化雲端失敗:", err));
+          }
+        }, (error) => {
+          console.error("Firestore 讀取失敗:", error);
+          setIsSyncing(false);
+          setIsOnline(false);
+          setDbErrorMsg('連線受阻，採用本機儲存');
+          const localData = localStorage.getItem('budget_records');
+          const localSchema = localStorage.getItem('budget_schema');
+          if(localData) setRecords(JSON.parse(localData));
+          if(localSchema) setProjectData(JSON.parse(localSchema));
+        });
+
+        return () => unsubscribe();
+      }, []);
+
+      const saveToCloudOrLocal = async (updatedRecords, updatedSchema) => {
+        const recs = updatedRecords !== undefined ? updatedRecords : records;
+        const sch = updatedSchema !== undefined ? updatedSchema : projectData;
+
+        localStorage.setItem('budget_records', JSON.stringify(recs));
+        localStorage.setItem('budget_schema', JSON.stringify(sch));
+
+        if (db) {
+          try {
+            await db.collection('public_data').doc('budget_main_records').set({ data: recs, schema: sch });
+          } catch(e) {
+            console.error("寫入雲端失敗", e);
+          }
+        }
+      }
+
+      const budgetOptions = useMemo(() => {
+        const opts = [];
+        projectData.forEach(plan => {
+          plan.subjects.forEach(subject => {
+            subject.courses.forEach(course => {
+              course.budgets.forEach(b => {
+                opts.push({ value: b.id, label: `${plan.id}類 | ${course.name} - ${b.category}` });
+              });
+            });
+          });
+        });
+        return opts;
+      }, [projectData]);
+
+      const handleConfirmAddCategory = async () => {
+        if (!newCategoryForm.category || !newCategoryForm.total) {
+          setAlertMsg("❌ 請務必填寫「類別名稱」與「預算金額」！");
+          return;
+        }
+
+        const newSchema = JSON.parse(JSON.stringify(projectData));
+        const plan = newSchema.find(p => p.id === activePlanId);
+        let found = false;
+
+        if (plan) {
+          plan.subjects.forEach(sub => {
+            const crs = sub.courses.find(c => c.id === activeCourseId);
+            if (crs) {
+              crs.budgets.push({
+                id: `${activeCourseId}-Custom-${Date.now()}`,
+                category: newCategoryForm.category.trim(),
+                desc: newCategoryForm.desc.trim() || '',
+                total: Number(newCategoryForm.total)
+              });
+              found = true;
+            }
+          });
+        }
+
+        if (found) {
+          setProjectData(newSchema);
+          await saveToCloudOrLocal(records, newSchema);
+          setShowAddCategoryModal(false);
+          setNewCategoryForm({ category: '', desc: '', total: '' });
+          setAlertMsg("✅ 成功新增自訂經費類別！");
+        }
+      };
+
+      const handleDeleteBudget = (planId, subjectName, courseId, budgetId) => {
+        if (!isAdmin) return;
+        setConfirmConfig({
+          title: '刪除經費類別',
+          message: '確定要刪除這個經費項目嗎？\n此操作將同時刪除該類別底下的「所有花費紀錄」，且無法復原！',
+          confirmText: '確定刪除',
+          isDanger: true,
+          onConfirm: async () => {
+            const newSchema = JSON.parse(JSON.stringify(projectData)); 
+            const plan = newSchema.find(p => p.id === planId);
+            if (plan) {
+              const subject = plan.subjects.find(s => s.name === subjectName);
+              if (subject) {
+                const course = subject.courses.find(c => c.id === courseId);
+                if (course) {
+                  course.budgets = course.budgets.filter(b => b.id !== budgetId);
+                }
+              }
+            }
+            const newRecords = { ...records };
+            delete newRecords[budgetId];
+            
+            setProjectData(newSchema);
+            setRecords(newRecords);
+            await saveToCloudOrLocal(newRecords, newSchema);
+            setAlertMsg("✅ 經費類別及相關紀錄已成功刪除！");
+          }
+        });
+      };
+
+      const handleCsvUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setImportFile(file); 
+        if(fileInputRef.current) fileInputRef.current.value = "";
+      };
+
+      const processImport = (isReplace) => {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const text = event.target.result;
+          
+          const parseCSVText = (csvText) => {
+            let result = [];
+            let row = [];
+            let inQuotes = false;
+            let current = "";
+            for (let i = 0; i < csvText.length; i++) {
+                let char = csvText[i];
+                let nextChar = csvText[i+1];
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        current += '"';
+                        i++; 
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    row.push(current.trim());
+                    current = "";
+                } else if ((char === '\n' || char === '\r') && !inQuotes) {
+                    if (char === '\r' && nextChar === '\n') i++; 
+                    row.push(current.trim());
+                    result.push(row);
+                    row = [];
+                    current = "";
+                } else {
+                    current += char;
+                }
+            }
+            if (current || row.length > 0) {
+                row.push(current.trim());
+                result.push(row);
+            }
+            return result;
+          };
+
+          const rows = parseCSVText(text);
+          if (rows.length < 2) {
+            setAlertMsg("❌ CSV 檔案格式錯誤或無資料");
+            setImportFile(null);
+            return;
+          }
+
+          const keywords = {
+            'A-1-1': ['府城', '傳情', '明信片', '踏查'],
+            'A-1-2': ['專題研究'],
+            'A-2-1': ['數學桌遊', '桌遊'],
+            'A-2-2': ['英文', '真遊趣'],
+            'A-2-5': ['悅讀'],
+            'A-2-6': ['島嶼', '思辨', '策展', '燈具'],
+            'A-3-1': ['社會', '擴大機', '投影機', '遊艇', '新聞', '劇本'],
+            'A-3-2': ['自然'],
+            'A-3-3': ['工程', '烙鐵', '帶鋸機', '車床', '新興科技'],
+            'A-4-1': ['選手'],
+            'B-1-1': ['數學科'],
+            'B-1-2': ['英文科'],
+            'B-1-3': ['國文科'],
+            'B-2-1': ['跨領域', '跨科'],
+            'B-3-1': ['自主學習'],
+            'C-1': ['學習歷程', '檔案', '數位小組'],
+            'C-2': ['課發會', '課程發展', '諮詢', '輔導', '指導'],
+            'C-3': ['獎學金', '獎助學金', '螢幕', '解說機']
+          };
+
+          let newRecordsCount = 0;
+          let pendingCount = 0;
+          
+          let updatedRecords = isReplace ? {} : { ...records };
+
+          const parseCurrencySafe = (val) => {
+            if (!val) return 0;
+            const cleaned = val.replace(/[^0-9.-]/g, '');
+            return Math.round(parseFloat(cleaned)) || 0;
+          };
+
+          for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (row.length < 8) continue; 
+
+            const date = row[1] || '';
+            const desc = row[2] || '';
+            let planChar = row[4] ? row[4].trim().toUpperCase().replace('Ａ', 'A').replace('Ｂ', 'B').replace('Ｃ', 'C') : '';
+            if (planChar === 'E') planChar = 'A'; 
+
+            const category = row[5] || '';
+            const noteText = row[6] || ''; 
+            
+            let amount = parseCurrencySafe(row[7]);
+            if (amount <= 0 && row[3]) amount = parseCurrencySafe(row[3]) * 1000;
+
+            if (!amount || amount <= 0 || !['A','B','C'].includes(planChar) || !category) continue;
+
+            let matchedBudgetId = null;
+            let bestScore = 0;
+            const combinedText = desc + noteText;
+
+            if (category.includes('保費') || category.includes('保險')) {
+              matchedBudgetId = `${planChar}-Comm-2`;
+              bestScore = 999;
+            } else {
+              projectData.forEach(plan => {
+                if (plan.id !== planChar) return;
+                plan.subjects.forEach(subject => {
+                  subject.courses.forEach(course => {
+                    course.budgets.forEach(b => {
+                      if (b.id.includes('Pending')) return; 
+                      
+                      const isCatMatch = b.category.includes(category) || category.includes(b.category) ||
+                                         (b.category.includes('鐘點') && category.includes('鐘點')) ||
+                                         (b.category.includes('維護') && category.includes('維護')) ||
+                                         (b.category.includes('材料') && category.includes('材料'));
+
+                      if (isCatMatch || category.includes('雜支')) { 
+                        let score = isCatMatch ? 5 : 0; 
+                        if (combinedText.includes(course.name)) score += 20;
+                        if (combinedText.includes(subject.name)) score += 10;
+                        if (keywords[course.id]) {
+                          keywords[course.id].forEach(kw => { if (combinedText.includes(kw)) score += 15; });
+                        }
+                        if (course.id === 'A-3-1' && combinedText.includes('自然')) score -= 50;
+                        if (course.id === 'A-3-2' && combinedText.includes('社會')) score -= 50;
+
+                        if (score > bestScore && score > 0) {
+                          bestScore = score;
+                          matchedBudgetId = b.id;
+                        }
+                      }
+                    });
+                  });
+                });
+              });
+            }
+
+            if (!matchedBudgetId) {
+               matchedBudgetId = `${planChar}-Pending-1`;
+               pendingCount++;
+            }
+
+            if (matchedBudgetId) {
+              const newRec = {
+                id: `csv-auto-${Date.now()}-${i}`,
+                amount: amount,
+                note: `[系統匯入] ${date} ${desc} (${noteText})`.substring(0, 80)
+              };
+              if (!updatedRecords[matchedBudgetId]) updatedRecords[matchedBudgetId] = [];
+              updatedRecords[matchedBudgetId].push(newRec);
+              newRecordsCount++;
+            }
+          }
+
+          if (newRecordsCount > 0) {
+            setRecords(updatedRecords);
+            await saveToCloudOrLocal(updatedRecords, projectData);
+            let msg = `✅ 成功匯入 ${newRecordsCount} 筆資料！${isReplace ? '(舊資料已完全覆蓋清除)' : '(已附加於現有資料後)'}\n\n`;
+            if (pendingCount > 0) msg += `⚠️ 有 ${pendingCount} 筆資料放置於各計畫的「待分類區」，請手動點擊鉛筆圖示移動。`;
+            else msg += `所有資料皆已精準自動分類。`;
+            setAlertMsg(msg);
+          } else {
+            setAlertMsg("⚠️ 未能配對任何資料，請確認 CSV 檔案內是否有有效金額與子計畫代碼 (A/B/C)。");
+          }
+          setImportFile(null);
+        };
+        reader.readAsText(importFile);
+      };
+
+      const handleExportCsv = () => {
+        if (!isAdmin) return;
+        let csvContent = '\uFEFF'; 
+        csvContent += '序號,日期,說明,金額單位(千元),子計畫,經費項目,備註,"金額\n單位(元)",已送出核章,核章後已回,與會計帳核對,\n';
+        let index = 1;
+        Object.keys(records).forEach(budgetId => {
+          const planChar = budgetId.split('-')[0];
+          let categoryName = '未分類';
+          projectData.forEach(p => {
+            p.subjects.forEach(s => {
+              s.courses.forEach(c => {
+                c.budgets.forEach(b => { if (b.id === budgetId) categoryName = b.category; });
+              });
+            });
+          });
+
+          records[budgetId].forEach(rec => {
+            let date = ''; let desc = rec.note; let noteText = '';
+            const match = rec.note.match(/\[系統匯入\] (.*?) (.*?) \((.*?)\)/);
+            if (match) {
+              date = match[1].trim(); desc = match[2].trim(); noteText = match[3].trim();
+            } else { desc = rec.note; }
+
+            const amountThousands = (rec.amount / 1000).toFixed(3);
+            const escapeCSV = (str) => `"${String(str || '').replace(/"/g, '""')}"`;
+            csvContent += `${index},${escapeCSV(date)},${escapeCSV(desc)},${amountThousands},${planChar},${escapeCSV(categoryName)},${escapeCSV(noteText)},"${rec.amount}",,,,\n`;
+            index++;
+          });
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        const today = new Date();
+        link.setAttribute('download', `高優經費匯出_${today.getFullYear()}${(today.getMonth()+1).toString().padStart(2,'0')}${today.getDate().toString().padStart(2,'0')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      const handleClearImported = () => {
+        if (!isAdmin) return;
+        setConfirmConfig({
+          title: '清除匯入紀錄',
+          message: '您確定要清除「所有透過 CSV 自動匯入」的紀錄嗎？\n(手動輸入的紀錄將會被安全保留)',
+          confirmText: '確定清除',
+          isDanger: true,
+          onConfirm: async () => {
+            let deletedCount = 0;
+            const updatedRecords = {};
+            Object.keys(records).forEach(budgetId => {
+              const originalLength = records[budgetId].length;
+              const filtered = records[budgetId].filter(r => !r.id.startsWith('csv-auto-') && !r.note.includes('[系統匯入]'));
+              deletedCount += (originalLength - filtered.length);
+              if (filtered.length > 0) updatedRecords[budgetId] = filtered;
+            });
+            setRecords(updatedRecords); 
+            await saveToCloudOrLocal(updatedRecords, projectData); 
+            setAlertMsg(`✅ 已成功清除 ${deletedCount} 筆匯入紀錄！`);
+          }
+        });
+      };
+
+      const handleWipeAllData = () => {
+        if (!isAdmin) return;
+        setConfirmConfig({
+          title: '嚴重警告：全部徹底清空',
+          message: '確定要清空雲端資料庫裡的「所有資料」並「還原預設架構」嗎？\n按下確定後，金額將瞬間歸 0，您手動新增或刪減的類別也會全部復原！',
+          confirmText: '確定清空歸零',
+          isDanger: true,
+          onConfirm: async () => {
+            try {
+              setRecords({}); 
+              setProjectData(INITIAL_PROJECT_DATA);
+              localStorage.removeItem('budget_records'); 
+              localStorage.removeItem('budget_schema'); 
+              
+              if (db && isOnline) {
+                await db.collection('public_data').doc('budget_main_records').set({ data: {}, schema: INITIAL_PROJECT_DATA });
+              }
+              setAlertMsg("✅ 系統資料已全部徹底清空，且架構已恢復預設值！");
+            } catch (error) {
+              setAlertMsg("❌ 清空過程發生錯誤：" + error.message);
+            }
+          }
+        });
+      };
+
+      const getStats = useMemo(() => {
+        const stats = { totalBudget: 0, totalSpent: 0, plans: {}, courses: {} };
+        projectData.forEach(plan => {
+          let planBudget = 0, planSpent = 0;
+          plan.subjects.forEach(subject => {
+            subject.courses.forEach(course => {
+              let courseBudget = 0, courseSpent = 0;
+              course.budgets.forEach(b => {
+                courseBudget += b.total;
+                const spent = (records[b.id] || []).reduce((sum, r) => sum + Number(r.amount), 0);
+                courseSpent += spent;
+              });
+              stats.courses[course.id] = { budget: courseBudget, spent: courseSpent };
+              planBudget += courseBudget; planSpent += courseSpent;
+            });
+          });
+          stats.plans[plan.id] = { budget: planBudget, spent: planSpent };
+          stats.totalBudget += planBudget; stats.totalSpent += planSpent;
+        });
+        return stats;
+      }, [records, projectData]);
+
+      const getSummary = useMemo(() => {
+        const summary = {};
+        projectData.forEach(plan => {
+          summary[plan.id] = { name: plan.name, categories: {} };
+          plan.subjects.forEach(subject => {
+            subject.courses.forEach(course => {
+              course.budgets.forEach(b => {
+                if(b.id.includes('Pending')) return; 
+                let cat = b.category;
+                if (!summary[plan.id].categories[cat]) summary[plan.id].categories[cat] = { budget: 0, spent: 0 };
+                summary[plan.id].categories[cat].budget += b.total;
+                const spent = (records[b.id] || []).reduce((sum, r) => sum + r.amount, 0);
+                summary[plan.id].categories[cat].spent += spent;
+              });
+            });
+          });
+        });
+        return summary;
+      }, [records, projectData]);
+
+      const handleInputChange = (budgetId, field, value) => {
+        setNewInputs(prev => ({ ...prev, [budgetId]: { ...(prev[budgetId] || { amount: '', note: '' }), [field]: value } }));
+      };
+
+      const handleAddRecord = (budgetId) => {
+        if (!isAdmin) return;
+        const currentInput = newInputs[budgetId];
+        if (!currentInput || !currentInput.amount || Number(currentInput.amount) <= 0) return;
+        const newRecord = { id: Date.now().toString(), amount: Number(currentInput.amount), note: currentInput.note || '' };
+        const updatedRecords = { ...records, [budgetId]: [...(records[budgetId] || []), newRecord] };
+        setRecords(updatedRecords);
+        setNewInputs(prev => ({ ...prev, [budgetId]: { amount: '', note: '' } }));
+        saveToCloudOrLocal(updatedRecords, projectData);
+      };
+
+      const handleEditClick = (rec, currentBudgetId) => {
+        if (!isAdmin) return;
+        setEditingRecordId(rec.id);
+        setEditForm({ amount: rec.amount, note: rec.note, targetBudgetId: currentBudgetId });
+      };
+
+      const handleSaveEdit = (oldBudgetId, recordId) => {
+        if (!isAdmin || !editForm.amount || Number(editForm.amount) < 0) return;
+        
+        const updatedRecords = { ...records };
+        const newBudgetId = editForm.targetBudgetId;
+
+        if (oldBudgetId === newBudgetId) {
+          updatedRecords[oldBudgetId] = updatedRecords[oldBudgetId].map(r => 
+            r.id === recordId ? { ...r, amount: Number(editForm.amount), note: editForm.note } : r
+          );
+        } else {
+          const recordToMove = updatedRecords[oldBudgetId].find(r => r.id === recordId);
+          if (recordToMove) {
+            updatedRecords[oldBudgetId] = updatedRecords[oldBudgetId].filter(r => r.id !== recordId);
+            if (updatedRecords[oldBudgetId].length === 0) delete updatedRecords[oldBudgetId];
+            
+            const movedRecord = { ...recordToMove, amount: Number(editForm.amount), note: editForm.note };
+            if (!updatedRecords[newBudgetId]) updatedRecords[newBudgetId] = [];
+            updatedRecords[newBudgetId].push(movedRecord);
+          }
+        }
+
+        setRecords(updatedRecords);
+        setEditingRecordId(null);
+        saveToCloudOrLocal(updatedRecords, projectData);
+      };
+
+      const handleDeleteRecord = (budgetId, recordId) => {
+        if (!isAdmin) return;
+        const updatedRecords = { ...records };
+        updatedRecords[budgetId] = updatedRecords[budgetId].filter(r => r.id !== recordId);
+        if (updatedRecords[budgetId].length === 0) delete updatedRecords[budgetId];
+        setRecords(updatedRecords);
+        saveToCloudOrLocal(updatedRecords, projectData);
+      };
+
+      const handleLogin = () => {
+        if (passwordInput === ADMIN_PASSWORD) {
+          setIsAdmin(true); setShowLogin(false); setPasswordInput('');
+        } else { setAlertMsg("密碼錯誤！"); }
+      };
+
+      const activePlan = projectData.find(p => p.id === activePlanId);
+      let activeCourse = null;
+      let activeSubjectName = '';
+      if (activePlan && activeCourseId) {
+        activePlan.subjects.forEach(sub => {
+          const course = sub.courses.find(c => c.id === activeCourseId);
+          if (course) { activeCourse = course; activeSubjectName = sub.name; }
+        });
+      }
+
+      return (
+        <div className="font-sans text-stone-800 pb-20 relative overflow-x-hidden min-h-screen selection:bg-amber-200">
+          
+          {alertMsg && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+               <div className="bg-white p-6 rounded-2xl max-w-sm w-full shadow-2xl fade-in">
+                 <h3 className="font-bold text-xl mb-3 text-stone-800 flex items-center"><i className="fas fa-info-circle text-amber-500 mr-2"></i>系統通知</h3>
+                 <p className="text-stone-600 whitespace-pre-wrap leading-relaxed">{alertMsg}</p>
+                 <div className="mt-5 text-right">
+                   <button onClick={() => setAlertMsg(null)} className="bg-amber-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-amber-700 transition-colors shadow-sm">知道了</button>
+                 </div>
+               </div>
+            </div>
+          )}
+          
+          {confirmConfig && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+               <div className="bg-white p-6 rounded-2xl max-w-sm w-full shadow-2xl fade-in">
+                 <h3 className={`font-bold text-xl mb-3 flex items-center ${confirmConfig.isDanger ? 'text-rose-600' : 'text-amber-700'}`}>
+                   <i className={`fas fa-exclamation-triangle mr-2`}></i>{confirmConfig.title}
+                 </h3>
+                 <p className="text-stone-600 whitespace-pre-wrap leading-relaxed mb-5">{confirmConfig.message}</p>
+                 <div className="flex justify-end space-x-3">
+                   <button onClick={() => setConfirmConfig(null)} className="px-4 py-2 bg-stone-100 text-stone-600 rounded-lg font-bold hover:bg-stone-200 transition-colors">取消</button>
+                   <button onClick={() => { confirmConfig.onConfirm(); setConfirmConfig(null); }} className={`px-4 py-2 text-white rounded-lg font-bold transition-colors shadow-sm ${confirmConfig.isDanger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+                     {confirmConfig.confirmText}
+                   </button>
+                 </div>
+               </div>
+            </div>
+          )}
+
+          {importFile && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+               <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl fade-in">
+                 <h3 className="font-bold text-xl mb-2 text-stone-800 flex items-center"><i className="fas fa-file-import text-amber-600 mr-2"></i> 選擇匯入模式</h3>
+                 <p className="mb-5 text-stone-500 text-sm">您選擇了檔案 <b>{importFile.name}</b>，請決定要如何處理這些資料：</p>
+                 <div className="space-y-4">
+                   <button onClick={() => processImport(true)} className="w-full text-left p-4 border border-rose-200 bg-rose-50 hover:bg-rose-100 hover:border-rose-300 rounded-xl transition-all group">
+                     <div className="font-bold text-rose-700 text-lg mb-1 group-hover:text-rose-800">🚨 完全覆蓋 (推薦)</div>
+                     <div className="text-xs text-rose-600/80 leading-relaxed">清空系統內現有所有資料，完全以這份 CSV 為主。可解決金額重複累加的問題。</div>
+                   </button>
+                   <button onClick={() => processImport(false)} className="w-full text-left p-4 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-300 rounded-xl transition-all group">
+                     <div className="font-bold text-emerald-700 text-lg mb-1 group-hover:text-emerald-800">➕ 附加資料</div>
+                     <div className="text-xs text-emerald-600/80 leading-relaxed">保留系統現有資料，將 CSV 內的新資料加入進去。</div>
+                   </button>
+                 </div>
+                 <div className="mt-5 text-right border-t border-stone-100 pt-4">
+                   <button onClick={() => { setImportFile(null); if(fileInputRef.current) fileInputRef.current.value=""; }} className="px-5 py-2 bg-stone-100 text-stone-600 font-bold rounded-lg hover:bg-stone-200 transition-colors">取消匯入</button>
+                 </div>
+               </div>
+            </div>
+          )}
+
+          {showAddCategoryModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+               <div className="bg-white p-6 rounded-2xl max-w-sm w-full shadow-2xl fade-in">
+                 <h3 className="font-bold text-xl mb-4 text-stone-800 flex items-center"><i className="fas fa-folder-plus text-amber-600 mr-2"></i> 新增經費類別</h3>
+                 <div className="space-y-3">
+                   <div>
+                     <label className="block text-xs font-bold text-stone-500 mb-1">經費類別名稱 <span className="text-rose-500">*</span></label>
+                     <input type="text" className="w-full border border-stone-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none text-sm" placeholder="例如：交通費、雜支..." value={newCategoryForm.category} onChange={e => setNewCategoryForm({...newCategoryForm, category: e.target.value})} />
+                   </div>
+                   <div>
+                     <label className="block text-xs font-bold text-stone-500 mb-1">說明用途</label>
+                     <input type="text" className="w-full border border-stone-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none text-sm" placeholder="例如：學生參訪遊覽車資..." value={newCategoryForm.desc} onChange={e => setNewCategoryForm({...newCategoryForm, desc: e.target.value})} />
+                   </div>
+                   <div>
+                     <label className="block text-xs font-bold text-stone-500 mb-1">編列預算金額 <span className="text-rose-500">*</span></label>
+                     <div className="relative">
+                       <i className="fas fa-dollar-sign absolute left-3 top-1/2 transform -translate-y-1/2 text-stone-400"></i>
+                       <input type="number" min="0" className="w-full border border-stone-300 rounded-lg pl-8 pr-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none text-sm" placeholder="請輸入數字..." value={newCategoryForm.total} onChange={e => setNewCategoryForm({...newCategoryForm, total: e.target.value})} />
+                     </div>
+                   </div>
+                 </div>
+                 <div className="mt-6 flex justify-end space-x-3">
+                   <button onClick={() => {setShowAddCategoryModal(false); setNewCategoryForm({category:'', desc:'', total:''});}} className="px-4 py-2 bg-stone-100 text-stone-600 rounded-lg font-bold hover:bg-stone-200 transition-colors">取消</button>
+                   <button onClick={handleConfirmAddCategory} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition-colors shadow-sm">確定新增</button>
+                 </div>
+               </div>
+            </div>
+          )}
+
+          <div className="fixed top-0 left-0 w-full h-96 bg-gradient-to-br from-stone-800 via-stone-700 to-amber-900/90 pointer-events-none z-0"></div>
+          <div className="fixed top-20 right-10 w-64 h-64 bg-[#FAF9F6]/10 rounded-full blur-3xl pointer-events-none z-0"></div>
+
+          {showLogin && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl fade-in">
+                <h3 className="text-xl font-bold text-stone-800 mb-4 flex items-center"><i className="fas fa-lock text-amber-600 mr-2"></i> 管理員登入</h3>
+                <input type="password" placeholder="輸入密碼..." className="w-full border border-stone-300 rounded-lg px-4 py-2 mb-4 focus:ring-2 focus:ring-amber-500 outline-none" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} onKeyDown={e => e.key==='Enter' && handleLogin()}/>
+                <div className="flex justify-end space-x-3">
+                  <button onClick={() => setShowLogin(false)} className="px-4 py-2 rounded-lg text-stone-500 hover:bg-stone-100 transition-colors">取消</button>
+                  <button onClick={handleLogin} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 shadow-sm transition-colors">登入</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="relative z-10 flex flex-col min-h-screen">
+            <div className="text-stone-50 shadow-sm border-b border-stone-600/30">
+              <div className="max-w-6xl mx-auto px-4 py-4 md:py-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
+                <div className="flex flex-col sm:flex-row sm:items-center w-full md:w-auto gap-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm"><i className="fas fa-leaf text-xl md:text-2xl text-amber-100"></i></div>
+                    <h1 className="text-xl md:text-2xl font-bold tracking-wide text-stone-50">114-2 高優計畫</h1>
+                  </div>
+                  <div className="flex items-center px-3 py-1.5 rounded-full bg-black/20 text-xs md:text-sm border border-white/10 backdrop-blur-md w-fit text-stone-200">
+                    {isSyncing ? <><i className="fas fa-sync-alt fa-spin mr-1.5 text-amber-200"></i> 載入中...</> : isOnline ? <><i className="fas fa-cloud mr-1.5 text-emerald-400"></i> 同步中</> : <><i className="fas fa-exclamation-triangle mr-1.5 text-rose-400"></i> 離線單機版</>}
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2 w-full md:w-auto justify-between md:justify-end overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
+                  {!isAdmin ? (
+                    <button onClick={() => setShowLogin(true)} className="bg-stone-900/40 hover:bg-stone-800/60 px-4 py-2 rounded-lg backdrop-blur-sm border border-stone-500/30 text-stone-100 text-sm font-medium shadow-inner flex items-center whitespace-nowrap">
+                      <i className="fas fa-lock mr-2 text-amber-200"></i> 管理員登入
+                    </button>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <button onClick={handleExportCsv} className="bg-blue-600/90 hover:bg-blue-500 px-3 py-2 rounded-lg backdrop-blur-sm border border-blue-400/50 text-white text-sm font-bold shadow-sm transition-colors flex items-center whitespace-nowrap">
+                        <i className="fas fa-file-export md:mr-2"></i> <span className="hidden md:inline">匯出 CSV</span>
+                      </button>
+                      <label className="cursor-pointer bg-emerald-600/90 hover:bg-emerald-500 px-3 py-2 rounded-lg backdrop-blur-sm border border-emerald-400/50 text-white text-sm font-bold shadow-sm transition-colors flex items-center whitespace-nowrap" title="點此上傳CSV">
+                        <i className="fas fa-file-import md:mr-2"></i> <span className="hidden md:inline">匯入 CSV</span>
+                        <input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={handleCsvUpload} />
+                      </label>
+                      <button onClick={handleWipeAllData} className="bg-rose-900/80 hover:bg-rose-800 px-3 py-2 rounded-lg backdrop-blur-sm border border-rose-600/50 text-white text-sm font-bold shadow-sm flex items-center whitespace-nowrap" title="全部清空所有資料庫">
+                        <i className="fas fa-trash-alt md:mr-1"></i> <span className="hidden md:inline">全清空</span>
+                      </button>
+                      <button onClick={() => setIsAdmin(false)} className="bg-stone-900/40 hover:bg-stone-800/60 px-3 py-2 rounded-lg backdrop-blur-sm border border-stone-500/30 text-stone-100 text-sm font-medium shadow-inner flex items-center whitespace-nowrap">
+                        <i className="fas fa-unlock-alt md:mr-1"></i> <span className="hidden md:inline">登出</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#FAF9F6]/95 backdrop-blur-md border-b border-stone-200 px-4 py-3 text-sm md:text-base text-stone-600 shadow-sm sticky top-0 z-40 transition-all">
+              <div className="max-w-6xl mx-auto flex flex-wrap items-center gap-2 md:gap-3">
+                <button onClick={() => setCurrentView('DASHBOARD')} className={`flex items-center px-2 py-1 rounded-md hover:bg-amber-50 hover:text-amber-800 transition-colors ${currentView === 'DASHBOARD' ? 'font-bold text-amber-800 bg-amber-100/50' : ''}`}><i className="fas fa-home mr-1.5 text-stone-400"></i> 首頁</button>
+                <span className="text-stone-300">/</span>
+                <button onClick={() => setCurrentView('SUMMARY')} className={`flex items-center px-2 py-1 rounded-md hover:bg-amber-50 hover:text-amber-800 transition-colors ${currentView === 'SUMMARY' ? 'font-bold text-amber-800 bg-amber-100/50' : ''}`}><i className="fas fa-table mr-1.5 text-stone-400"></i> 總表</button>
+                {currentView !== 'DASHBOARD' && currentView !== 'SUMMARY' && activePlan && (
+                  <><i className="fas fa-chevron-right text-stone-300 text-xs mt-0.5"></i><button onClick={() => { setCurrentView('PLAN'); setActiveCourseId(null); }} className={`flex items-center px-2 py-1 rounded-md hover:bg-amber-50 hover:text-amber-800 transition-colors ${currentView === 'PLAN' ? 'font-bold text-amber-800 bg-amber-100/50' : 'text-stone-600'}`}>{activePlan.name.split(' ')[0]} <span className="hidden sm:inline">&nbsp;{activePlan.name.split(' ')[1]}</span></button></>
+                )}
+                {currentView === 'COURSE' && activeCourse && (
+                  <><i className="fas fa-chevron-right text-stone-300 text-xs mt-0.5"></i><span className="font-bold text-stone-800 bg-stone-200/60 px-2 py-1 rounded-md truncate" title={activeCourse.name}>{activeCourse.name}</span></>
+                )}
+                <div className="ml-auto text-xs font-bold px-2 py-1 rounded bg-stone-100 text-stone-500">
+                  模式：{isAdmin ? <span className="text-emerald-600"><i className="fas fa-pen text-[10px] mr-1"></i>管理</span> : <span><i className="fas fa-eye text-[10px] mr-1"></i>唯讀</span>}
+                </div>
+              </div>
+            </div>
+            
+            <main className="flex-1 w-full max-w-6xl mx-auto px-3 md:px-4 py-6 md:py-8">
+              
+              {currentView === 'DASHBOARD' && (
+                <div className="space-y-6 md:space-y-8 fade-in">
+                  <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between relative overflow-hidden">
+                    <div className="relative z-10 w-full md:w-2/3">
+                      <div className="inline-block px-3 py-1 mb-3 rounded-full bg-amber-100 text-amber-800 text-xs font-bold tracking-wider">即時雲端版</div>
+                      <h2 className="text-2xl md:text-3xl font-extrabold text-stone-800 mb-3">歡迎使用經費管理系統</h2>
+                      <p className="text-sm md:text-base text-stone-600 leading-relaxed mb-4 md:mb-0">目前為 <strong className={isAdmin ? 'text-emerald-600' : 'text-stone-500'}>{isAdmin ? '編輯模式' : '唯讀模式'}</strong>。您可以點選右上方「登入」解鎖新增與修改權限，所有操作都會 <strong className="text-amber-700">即時同步儲存</strong>。</p>
+                    </div>
+                    <div className="hidden md:flex absolute -right-6 -bottom-8 opacity-5 transform -rotate-12"><i className="fas fa-seedling text-[180px] text-amber-900"></i></div>
+                  </div>
+
+                  <h3 className="text-xl font-bold text-stone-800 flex items-center mb-4"><i className="fas fa-folder-open text-amber-600 mr-2"></i> 計畫分類總覽</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+                    {projectData.map(plan => {
+                      const stats = getStats.plans[plan.id];
+                      const progress = stats.budget > 0 ? Math.min(100, (stats.spent / stats.budget) * 100) : 0;
+                      return (
+                        <div key={plan.id} onClick={() => { setActivePlanId(plan.id); setCurrentView('PLAN'); }} className="bg-white rounded-2xl shadow-sm border border-stone-200 p-5 md:p-6 cursor-pointer hover:shadow-md hover:-translate-y-1 hover:border-amber-400 transition-all duration-300 group">
+                          <div className="flex items-center justify-between mb-5">
+                            <div className="flex items-center space-x-3">
+                              <div className="p-3 md:p-4 bg-stone-100 text-stone-600 rounded-xl group-hover:bg-amber-600 group-hover:text-white transition-colors"><i className="fas fa-layer-group text-xl md:text-2xl"></i></div>
+                              <h3 className="text-lg md:text-xl font-bold text-stone-800 leading-tight">{plan.name.split(' ')[0]}<br/><span className="text-sm text-stone-500 font-normal">{plan.name.split(' ')[1]}</span></h3>
+                            </div>
+                            <i className="fas fa-arrow-right text-stone-300 group-hover:text-amber-600 transition-colors"></i>
+                          </div>
+                          <div className="space-y-3 mb-5 p-4 bg-[#FAF9F6] rounded-xl border border-stone-100">
+                            <div className="flex justify-between text-sm"><span className="text-stone-500">預算總額</span><span className="font-semibold text-stone-700">{formatCurrency(stats.budget)}</span></div>
+                            <div className="flex justify-between text-sm"><span className="text-stone-500">已用金額</span><span className="font-bold text-amber-700">{formatCurrency(stats.spent)}</span></div>
+                            <div className="pt-2 border-t border-stone-200 flex justify-between text-sm"><span className="text-stone-600 font-medium">剩餘額度</span><span className={`font-extrabold ${stats.budget - stats.spent < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatCurrency(stats.budget - stats.spent)}</span></div>
+                          </div>
+                          <div>
+                            <div className="flex justify-between text-xs mb-1.5 text-stone-500 font-medium"><span>執行進度</span><span>{progress.toFixed(1)}%</span></div>
+                            <div className="w-full bg-stone-200 rounded-full h-2"><div className={`h-2 rounded-full transition-all duration-1000 ${progress > 100 ? 'bg-rose-500' : 'bg-gradient-to-r from-amber-400 to-amber-600'}`} style={{ width: `${Math.min(100, progress)}%` }}></div></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {currentView === 'SUMMARY' && (
+                <div className="space-y-6 md:space-y-8 fade-in">
+                  <div className="flex justify-between items-center mb-2">
+                     <button onClick={() => setCurrentView('DASHBOARD')} className="flex items-center text-sm md:text-base text-stone-500 hover:text-stone-800 hover:-translate-x-1 transition-all bg-white py-2 px-4 rounded-full shadow-sm w-fit border border-stone-200">
+                       <i className="fas fa-arrow-left mr-2"></i> 返回首頁
+                     </button>
+                  </div>
+                  <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-stone-200 relative overflow-hidden">
+                    <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between mb-6 border-b border-stone-100 pb-4">
+                      <div><h2 className="text-xl md:text-2xl font-bold text-stone-800 flex items-center"><i className="fas fa-chart-bar text-amber-600 mr-2"></i> 系統整體經費結算</h2><p className="text-sm text-stone-500 mt-1">所有計畫加總之執行進度</p></div>
+                    </div>
+                    <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                      <div className="bg-[#FAF9F6] p-4 rounded-xl border border-stone-100 text-center"><div className="text-stone-500 text-xs md:text-sm font-medium mb-1">所有計畫總預算</div><div className="text-xl md:text-2xl font-bold text-stone-800">{formatCurrency(getStats.totalBudget)}</div></div>
+                      <div className="bg-[#FAF9F6] p-4 rounded-xl border border-stone-100 text-center"><div className="text-stone-500 text-xs md:text-sm font-medium mb-1">累積總花費</div><div className="text-xl md:text-2xl font-bold text-amber-700">{formatCurrency(getStats.totalSpent)}</div></div>
+                      <div className="bg-[#FAF9F6] p-4 rounded-xl border border-stone-100 text-center"><div className="text-stone-500 text-xs md:text-sm font-medium mb-1">整體總可用餘額</div><div className={`text-xl md:text-2xl font-bold ${getStats.totalBudget - getStats.totalSpent < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatCurrency(getStats.totalBudget - getStats.totalSpent)}</div></div>
+                      <div className="bg-amber-100/50 p-4 rounded-xl border border-amber-200 text-center shadow-sm"><div className="text-amber-800 text-xs md:text-sm font-bold mb-1"><i className="fas fa-bolt mr-1"></i>整體總執行率</div><div className="text-2xl md:text-3xl font-black text-amber-700 drop-shadow-sm">{getStats.totalBudget > 0 ? ((getStats.totalSpent / getStats.totalBudget) * 100).toFixed(1) : 0}%</div></div>
+                    </div>
+                  </div>
+                  
+                  {Object.keys(getSummary).map(planId => {
+                    const planData = getSummary[planId];
+                    let totalBudget = 0, totalSpent = 0;
+                    return (
+                      <div key={planId} className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
+                        <div className="bg-stone-100 px-4 md:px-6 py-3 md:py-4 border-b border-stone-200 flex items-center"><div className="bg-stone-600 text-white w-8 h-8 rounded-lg flex items-center justify-center font-bold mr-3 shadow-sm">{planId}</div><h3 className="text-lg md:text-xl font-bold text-stone-800">{planId}計畫</h3></div>
+                        <div className="overflow-x-auto custom-scrollbar">
+                          <table className="w-full text-left border-collapse min-w-[500px] md:min-w-[600px]">
+                            <thead>
+                              <tr className="bg-white text-stone-500 text-xs md:text-sm tracking-wider border-b border-stone-200">
+                                <th className="px-3 md:px-6 py-3 md:py-4 font-bold border-r border-stone-100 w-1/4">經費類別</th><th className="px-3 md:px-6 py-3 md:py-4 font-bold border-r border-stone-100 w-[20%] text-right">已使用</th><th className="px-3 md:px-6 py-3 md:py-4 font-bold border-r border-stone-100 w-[20%] text-right">核定金額</th><th className="px-3 md:px-6 py-3 md:py-4 font-bold border-r border-stone-100 w-[20%] text-right">可用餘額</th><th className="px-3 md:px-6 py-3 md:py-4 font-bold w-[15%] text-right">執行率</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-stone-100">
+                              {Object.keys(planData.categories).map(cat => {
+                                const { budget, spent } = planData.categories[cat];
+                                totalBudget += budget; totalSpent += spent;
+                                const remaining = budget - spent;
+                                const progressRate = budget > 0 ? ((spent / budget) * 100).toFixed(1) : 0;
+                                return (
+                                  <tr key={cat} className="hover:bg-amber-50/50">
+                                    <td className="px-3 md:px-6 py-3 md:py-4 border-r border-stone-100 font-medium text-stone-800">{cat}</td>
+                                    <td className="px-3 md:px-6 py-3 md:py-4 border-r border-stone-100 text-right text-amber-700 font-semibold">{formatCurrency(spent)}</td>
+                                    <td className="px-3 md:px-6 py-3 md:py-4 border-r border-stone-100 text-right text-stone-600">{formatCurrency(budget)}</td>
+                                    <td className={`px-3 md:px-6 py-3 md:py-4 border-r border-stone-100 text-right font-bold ${remaining < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>{formatCurrency(remaining)}</td>
+                                    <td className="px-3 md:px-6 py-3 md:py-4 text-right text-stone-500">{progressRate}%</td>
+                                  </tr>
+                                );
+                              })}
+                              <tr className="bg-stone-50/80 border-t-2 border-stone-200">
+                                <td className="px-3 md:px-6 py-3 md:py-4 border-r border-stone-200 font-extrabold text-stone-800">分類總計</td><td className="px-3 md:px-6 py-3 md:py-4 border-r border-stone-200 text-right font-bold text-amber-800">{formatCurrency(totalSpent)}</td><td className="px-3 md:px-6 py-3 md:py-4 border-r border-stone-200 text-right font-bold text-stone-800">{formatCurrency(totalBudget)}</td><td className={`px-3 md:px-6 py-3 md:py-4 border-r border-stone-200 text-right font-extrabold ${totalBudget - totalSpent < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatCurrency(totalBudget - totalSpent)}</td><td className="px-3 md:px-6 py-3 md:py-4 text-right font-bold text-stone-800">{totalBudget > 0 ? ((totalSpent / totalBudget) * 100).toFixed(1) : 0}%</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {currentView === 'PLAN' && activePlan && (
+                <div className="space-y-6 fade-in">
+                  <div className="flex justify-between items-center mb-2">
+                     <button onClick={() => setCurrentView('DASHBOARD')} className="flex items-center text-sm md:text-base text-stone-500 hover:text-stone-800 hover:-translate-x-1 transition-all bg-white py-2 px-4 rounded-full shadow-sm w-fit border border-stone-200">
+                       <i className="fas fa-arrow-left mr-2"></i> 返回首頁
+                     </button>
+                  </div>
+                  <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-5 md:p-6 lg:p-8 flex flex-col lg:flex-row lg:items-center justify-between relative overflow-hidden gap-6">
+                    <div className="absolute -right-10 -top-10 text-stone-100 opacity-50 z-0"><i className="fas fa-layer-group text-[150px]"></i></div>
+                    <div className="relative z-10"><div className="inline-block px-3 py-1 mb-2 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">{activePlan.id} 類計畫</div><h2 className="text-xl md:text-2xl lg:text-3xl font-extrabold text-stone-800 mb-2">{activePlan.name}</h2><p className="text-stone-500 text-sm">點擊下方課程進入檢視與填寫（含待分類區）</p></div>
+                    <div className="relative z-10 flex gap-3 w-full lg:w-auto">
+                      <div className="bg-[#FAF9F6] border border-stone-100 rounded-xl p-4 flex-1"><div className="text-xs text-stone-500 mb-1">預算總額</div><div className="text-lg font-bold text-stone-800">{formatCurrency(getStats.plans[activePlan.id].budget)}</div></div>
+                      <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4 flex-1"><div className="text-xs text-emerald-600 mb-1">剩餘可用</div><div className="text-lg font-extrabold text-emerald-700">{formatCurrency(getStats.plans[activePlan.id].budget - getStats.plans[activePlan.id].spent)}</div></div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6 md:space-y-8">
+                    {activePlan.subjects.map((subject, idx) => {
+                      const isPendingArea = subject.name.includes("待分類區");
+                      return (
+                      <div key={idx} className={`bg-white rounded-2xl shadow-sm border overflow-hidden ${isPendingArea ? 'border-amber-400' : 'border-stone-200'}`}>
+                        <div className={`px-5 md:px-6 py-3 md:py-4 border-b flex items-center ${isPendingArea ? 'bg-amber-50 border-amber-200' : 'bg-stone-50 border-stone-200'}`}>
+                          <div className={`w-1.5 h-6 rounded-full mr-3 ${isPendingArea ? 'bg-amber-500' : 'bg-stone-500'}`}></div>
+                          <h3 className={`text-lg font-bold ${isPendingArea ? 'text-amber-800' : 'text-stone-800'}`}>
+                            {subject.name} {isPendingArea && <i className="fas fa-exclamation-circle ml-2 text-amber-500" title="匯入時無法配對的項目會放置於此"></i>}
+                          </h3>
+                        </div>
+                        <div className="p-5 md:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+                          {subject.courses.map(course => {
+                            const cStats = getStats.courses[course.id];
+                            const remaining = cStats.budget - cStats.spent;
+                            const isOver = remaining < 0;
+                            return (
+                              <div key={course.id} onClick={() => { setActiveCourseId(course.id); setCurrentView('COURSE'); }} className={`rounded-xl border p-4 md:p-5 cursor-pointer transition-all duration-200 group flex flex-col justify-between h-full relative overflow-hidden ${isPendingArea ? 'bg-amber-50/30 border-amber-200 hover:border-amber-500 hover:shadow-md' : 'bg-white border-stone-200 hover:border-amber-400 hover:shadow-md'}`}>
+                                {isOver && <div className="absolute top-0 right-0 w-12 h-12 overflow-hidden"><div className="bg-rose-500 text-white text-[10px] font-bold py-1 w-16 text-center transform rotate-45 translate-x-3 translate-y-2 shadow-sm">超支</div></div>}
+                                <div className="mb-4">
+                                  <div className={`font-bold text-base md:text-lg mb-1 transition-colors pr-4 ${isPendingArea ? 'text-amber-800' : 'text-stone-800 group-hover:text-amber-700'}`}>{course.name}</div>
+                                  <div className="text-xs text-stone-400 font-medium"><i className="fas fa-hashtag text-[10px] mr-0.5 opacity-50"></i>{course.id}</div>
+                                </div>
+                                <div className="bg-[#FAF9F6] rounded-lg p-3 border border-stone-100 mt-auto">
+                                  <div className="flex justify-between items-center mb-1.5"><span className="text-xs text-stone-500">編列預算</span><span className="text-sm font-semibold text-stone-700">{formatCurrency(cStats.budget)}</span></div>
+                                  <div className="flex justify-between items-center pt-1.5 border-t border-stone-200"><span className="text-xs text-stone-500">目前結餘</span><span className={`text-base font-extrabold ${isOver ? 'text-rose-600' : (remaining > 0 ? 'text-emerald-700' : 'text-stone-400')}`}>{formatCurrency(remaining)}</span></div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )})}
+                  </div>
+                </div>
+              )}
+
+              {currentView === 'COURSE' && activeCourse && (
+                <div className="fade-in">
+                  <div className="flex justify-between items-center mb-4 md:mb-6">
+                    <button onClick={() => setCurrentView('PLAN')} className="flex items-center text-sm md:text-base text-stone-500 hover:text-stone-800 hover:-translate-x-1 transition-all bg-white py-2 px-4 rounded-full shadow-sm border border-stone-200">
+                      <i className="fas fa-arrow-left mr-2"></i> 返回 {activePlan?.name.split(' ')[0]}
+                    </button>
+                  </div>
+
+                  <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
+                    <div className="bg-stone-50 px-4 md:px-6 lg:px-8 py-5 md:py-6 border-b border-stone-200 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 relative overflow-hidden">
+                      <div className="absolute right-0 top-0 text-stone-200 opacity-40 transform rotate-12 -translate-y-4 pointer-events-none"><i className="fas fa-book-open text-[120px]"></i></div>
+                      <div className="relative z-10">
+                        <div className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800 mb-2 border border-amber-200 shadow-sm">{activePlan?.id}-{activeSubjectName}</div>
+                        <h2 className="text-2xl md:text-3xl font-extrabold text-stone-800">{activeCourse.name}</h2>
+                        <p className="text-sm text-stone-500 mt-1 font-medium"><i className="fas fa-hashtag text-[10px] mr-1 opacity-60"></i>{activeCourse.id}</p>
+                      </div>
+                      <div className="relative z-10 flex flex-wrap gap-3 md:gap-4 w-full lg:w-auto">
+                        <div className="bg-white border border-stone-200 rounded-xl p-3 md:p-4 flex-1 min-w-[110px] shadow-sm">
+                          <div className="text-[10px] md:text-xs text-stone-500 font-medium mb-1">總預算</div>
+                          <div className="text-base md:text-lg font-bold text-stone-800">{formatCurrency(getStats.courses[activeCourse.id].budget)}</div>
+                        </div>
+                        <div className="bg-white border border-amber-100 rounded-xl p-3 md:p-4 flex-1 min-w-[110px] shadow-sm">
+                          <div className="text-[10px] md:text-xs text-amber-600 font-bold mb-1">總花費</div>
+                          <div className="text-base md:text-lg font-bold text-amber-700">{formatCurrency(getStats.courses[activeCourse.id].spent)}</div>
+                        </div>
+                        <div className={`border rounded-xl p-3 md:p-4 flex-1 min-w-[110px] shadow-sm ${getStats.courses[activeCourse.id].budget - getStats.courses[activeCourse.id].spent < 0 ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                          <div className={`text-[10px] md:text-xs font-bold mb-1 ${getStats.courses[activeCourse.id].budget - getStats.courses[activeCourse.id].spent < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>總剩餘</div>
+                          <div className={`text-base md:text-xl font-extrabold ${getStats.courses[activeCourse.id].budget - getStats.courses[activeCourse.id].spent < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                            {formatCurrency(getStats.courses[activeCourse.id].budget - getStats.courses[activeCourse.id].spent)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto custom-scrollbar">
+                      <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-full">
+                        <thead>
+                          <tr className="bg-white text-stone-500 text-xs md:text-sm uppercase tracking-wider border-b-2 border-stone-200">
+                            <th className="px-3 md:px-6 py-3 md:py-4 font-bold w-[18%]">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                <span>類別</span>
+                                {isAdmin && !activeCourse.id.includes('Pending') && (
+                                  <button onClick={() => setShowAddCategoryModal(true)} className="bg-emerald-500 text-white hover:bg-emerald-600 px-2 py-1 rounded text-[10px] md:text-xs transition-colors shadow-sm flex items-center whitespace-nowrap w-fit">
+                                    <i className="fas fa-plus mr-1"></i> 新增
+                                  </button>
+                                )}
+                              </div>
+                            </th>
+                            <th className="px-3 md:px-6 py-3 md:py-4 font-bold w-[20%]">說明用途</th>
+                            <th className="px-3 md:px-6 py-3 md:py-4 font-bold w-[12%] text-right">預算</th>
+                            <th className="px-3 md:px-6 py-3 md:py-4 font-bold w-[12%] text-right">累積花費</th>
+                            <th className="px-3 md:px-6 py-3 md:py-4 font-bold text-right w-[12%]">剩餘</th>
+                            <th className="px-3 md:px-6 py-3 md:py-4 font-bold w-[22%]">備註/紀錄</th>
+                            <th className="px-2 md:px-4 py-3 md:py-4 font-bold text-center w-[10%]">操作</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                          {activeCourse.budgets.map(item => {
+                            const itemRecords = records[item.id] || [];
+                            const spent = itemRecords.reduce((sum, r) => sum + r.amount, 0);
+                            const remaining = item.total - spent;
+                            const currentInput = newInputs[item.id] || { amount: '', note: '' };
+                            const isPending = item.id.includes('Pending');
+
+                            return (
+                              <React.Fragment key={item.id}>
+                                <tr className="bg-[#FAF9F6] border-t-[3px] border-stone-200">
+                                  <td className="px-3 md:px-6 py-3 md:py-4 align-top md:align-middle"><span className={`inline-flex items-center px-2 py-1 rounded text-[10px] md:text-xs font-bold border whitespace-nowrap shadow-sm ${isPending ? 'bg-amber-200 text-amber-800 border-amber-300' : 'bg-stone-200 text-stone-700 border-stone-300'}`}>{item.category}</span></td>
+                                  <td className={`px-3 md:px-6 py-3 md:py-4 align-top md:align-middle font-medium text-xs md:text-sm ${isPending ? 'text-amber-800' : 'text-stone-800'}`}>{item.desc}</td>
+                                  <td className="px-3 md:px-6 py-3 md:py-4 align-top md:align-middle text-right font-bold text-stone-500 text-xs md:text-sm whitespace-nowrap">{formatCurrency(item.total)}</td>
+                                  <td className="px-3 md:px-6 py-3 md:py-4 align-top md:align-middle text-right font-bold text-amber-700 text-sm md:text-base whitespace-nowrap">{formatCurrency(spent)}</td>
+                                  <td className="px-3 md:px-6 py-3 md:py-4 align-top md:align-middle text-right"><span className={`font-extrabold text-sm md:text-base whitespace-nowrap px-2 py-0.5 rounded shadow-sm ${remaining < 0 ? 'bg-rose-50 text-rose-600 border border-rose-200' : (remaining > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'text-stone-400')}`}>{formatCurrency(remaining)}</span></td>
+                                  <td className="px-3 md:px-6 py-3 md:py-4 align-top md:align-middle text-[10px] md:text-xs text-stone-400 font-medium">{itemRecords.length > 0 ? <span className="bg-stone-200/50 px-2 py-1 rounded-md text-stone-600"><i className="fas fa-history mr-1 opacity-70"></i>已有 {itemRecords.length} 筆</span> : '無紀錄'}</td>
+                                  <td className="px-2 md:px-4 py-3 md:py-4 align-top md:align-middle bg-[#FAF9F6] text-center">
+                                    {isAdmin && !isPending && (
+                                      <button onClick={() => handleDeleteBudget(activePlan.id, activeSubjectName, activeCourse.id, item.id)} className="text-stone-300 hover:text-rose-500 transition-colors p-1" title="刪除此經費類別">
+                                        <i className="fas fa-trash-alt"></i>
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                                
+                                {itemRecords.map((rec, idx) => (
+                                  editingRecordId === rec.id ? (
+                                    <tr key={`edit-${rec.id}`} className="border-t border-amber-200 bg-amber-50/70">
+                                      <td colSpan="2" className="px-3 md:px-6 py-2 align-middle">
+                                        <div className="flex flex-col space-y-1">
+                                          <span className="text-[10px] md:text-xs text-amber-700 font-bold"><i className="fas fa-exchange-alt mr-1"></i> 修改歸屬項目 (可移至他科)</span>
+                                          <select value={editForm.targetBudgetId} onChange={(e) => setEditForm({...editForm, targetBudgetId: e.target.value})} className="block w-full px-2 py-1 text-[10px] md:text-xs border-amber-200 rounded shadow-sm outline-none bg-white focus:ring-1 focus:ring-amber-500 text-stone-700 max-w-[250px]">
+                                            {budgetOptions.filter(o => !o.value.includes('Pending')).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                                          </select>
+                                        </div>
+                                      </td>
+                                      <td colSpan="2" className="px-3 md:px-6 py-2 align-middle">
+                                        <div className="relative flex items-center">
+                                          <i className="fas fa-dollar-sign absolute left-3 text-stone-400 text-xs"></i>
+                                          <input type="number" className="block w-full pl-7 pr-2 py-1.5 text-xs md:text-sm border-amber-200 rounded shadow-sm outline-none bg-white focus:ring-1 focus:ring-amber-500 focus:border-amber-500" value={editForm.amount} onChange={(e) => setEditForm({...editForm, amount: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit(item.id, rec.id)} />
+                                        </div>
+                                      </td>
+                                      <td colSpan="2" className="px-3 md:px-6 py-2 align-middle">
+                                        <input type="text" className="block w-full px-3 py-1.5 text-xs md:text-sm border-amber-200 rounded shadow-sm outline-none bg-white focus:ring-1 focus:ring-amber-500 focus:border-amber-500" placeholder="備註說明" value={editForm.note} onChange={(e) => setEditForm({...editForm, note: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit(item.id, rec.id)} />
+                                      </td>
+                                      <td className="px-2 md:px-4 py-2 align-middle flex justify-center space-x-2">
+                                        <button onClick={() => handleSaveEdit(item.id, rec.id)} className="text-white bg-emerald-600 hover:bg-emerald-700 p-1.5 rounded shadow-sm transition-colors" title="儲存"><i className="fas fa-check text-xs"></i></button>
+                                        <button onClick={() => {setEditingRecordId(null); setEditForm({amount:'', note:'', targetBudgetId: ''})}} className="text-stone-500 bg-stone-200 hover:bg-stone-300 p-1.5 rounded shadow-sm transition-colors" title="取消"><i className="fas fa-times text-xs"></i></button>
+                                      </td>
+                                    </tr>
+                                  ) : (
+                                    <tr key={rec.id} className={`border-t border-stone-100 hover:bg-stone-50 group transition-colors ${isPending ? 'bg-amber-50/20' : ''}`}>
+                                      <td colSpan="2" className="px-3 md:px-6 py-1.5 md:py-2 text-[10px] md:text-xs text-stone-400 text-right align-middle"><i className="fas fa-caret-right mr-1 opacity-50"></i> 第 {idx + 1} 筆</td>
+                                      <td colSpan="2" className="px-3 md:px-6 py-1.5 md:py-2 align-middle text-right font-bold text-stone-700 text-xs md:text-sm whitespace-nowrap">{formatCurrency(rec.amount)}</td>
+                                      <td colSpan="2" className="px-3 md:px-6 py-1.5 md:py-2 align-middle text-[11px] md:text-xs text-stone-500">{rec.note || '-'}</td>
+                                      <td className="px-2 md:px-4 py-1.5 md:py-2 align-middle flex justify-center space-x-2 md:space-x-3 opacity-40 group-hover:opacity-100 transition-opacity">
+                                        {isAdmin ? (
+                                          <>
+                                            <button onClick={() => handleEditClick(rec, item.id)} className="text-amber-500 hover:text-amber-700 hover:bg-amber-100 p-1.5 rounded-full transition-colors" title="編輯或移動"><i className="fas fa-pencil-alt text-xs md:text-sm"></i></button>
+                                            <button onClick={() => handleDeleteRecord(item.id, rec.id)} className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-full transition-colors" title="刪除"><i className="fas fa-trash-alt text-xs md:text-sm"></i></button>
+                                          </>
+                                        ) : (
+                                          <span className="text-[10px] text-stone-300">唯讀</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  )
+                                ))}
+                                
+                                {isAdmin && !isPending && (
+                                  <tr className="border-t border-stone-200 bg-amber-50/40">
+                                    <td colSpan="2" className="px-3 md:px-6 py-2.5 md:py-3 text-[11px] md:text-sm text-amber-700 text-right font-bold align-middle"><i className="fas fa-plus-circle mr-1"></i> 新增紀錄</td>
+                                    <td colSpan="2" className="px-3 md:px-6 py-2.5 md:py-3 align-middle">
+                                      <div className="relative flex items-center min-w-[120px]">
+                                        <i className="fas fa-dollar-sign absolute left-3 text-amber-500 text-xs md:text-sm"></i>
+                                        <input type="number" min="0" className="block w-full pl-7 pr-2 py-1.5 md:py-2 text-xs md:text-sm border-amber-200 rounded-lg shadow-sm border outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all bg-white" placeholder="輸入金額" value={currentInput.amount} onChange={(e) => handleInputChange(item.id, 'amount', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddRecord(item.id)} />
+                                      </div>
+                                    </td>
+                                    <td colSpan="2" className="px-3 md:px-6 py-2.5 md:py-3 align-middle">
+                                      <input type="text" className="block w-full min-w-[150px] px-3 py-1.5 md:py-2 text-xs md:text-sm border-amber-200 rounded-lg shadow-sm border outline-none placeholder-stone-400 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all bg-white" placeholder="備註說明 (按Enter即可新增)..." value={currentInput.note} onChange={(e) => handleInputChange(item.id, 'note', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddRecord(item.id)} />
+                                    </td>
+                                    <td className="px-2 md:px-4 py-2.5 md:py-3 align-middle text-center">
+                                      <button onClick={() => handleAddRecord(item.id)} disabled={!currentInput.amount || Number(currentInput.amount) <= 0} className="inline-flex items-center justify-center px-3 py-1.5 md:py-2 border border-transparent text-xs md:text-sm font-bold rounded-lg shadow-md text-white bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 disabled:shadow-none w-full transition-all active:scale-95"><i className="fas fa-paper-plane md:mr-1.5"></i> <span className="hidden md:inline">送出</span></button>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                          
+                          {isAdmin && !activeCourse.id.includes('Pending') && (
+                            <tr className="bg-emerald-50/40 border-t border-emerald-200">
+                              <td colSpan="7" className="px-3 md:px-6 py-4 text-center">
+                                <button onClick={() => setShowAddCategoryModal(true)} className="inline-flex items-center justify-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 shadow-sm transition-all text-sm font-bold w-full md:w-auto">
+                                  <i className="fas fa-plus-circle mr-2"></i> 找不到適合的項目？新增經費類別
+                                </button>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    <div className="bg-stone-50 px-4 md:px-6 py-3 border-t border-stone-200 text-xs text-stone-500 flex items-center justify-between font-medium">
+                      <span>
+                        {isAdmin ? <><i className="fas fa-lightbulb text-amber-500 mr-1.5"></i> 小提示：在輸入框按 <b className="bg-stone-200 px-1.5 rounded text-stone-700 mx-1">Enter</b> 鍵即可快速連續新增</> : <><i className="fas fa-lock text-stone-400 mr-1.5"></i> 您目前處於唯讀模式，無法編輯</>}
+                      </span>
+                      <span className="hidden md:inline"><i className="fas fa-check-circle text-emerald-600 mr-1.5"></i> 自動儲存</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </main>
+            
+            <footer className="w-full text-center py-6 text-xs text-stone-400 mt-auto font-medium tracking-wide">
+              <p>高優計畫經費管理系統 &copy; 2024 <i className="fas fa-leaf mx-1 text-amber-700/30"></i> 雲端即時版</p>
+            </footer>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
