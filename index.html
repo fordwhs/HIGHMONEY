@@ -3,1224 +3,312 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>高優計畫經費管理系統</title>
-  
-  <!-- 引入 Tailwind CSS 與 FontAwesome 圖示 -->
+  <title>114-2 多元選修課程查詢系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- 引入 React 與 Babel -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- 引入 Firebase 資料庫 SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
   <style>
-    .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+    .fade-in { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: #f5f5f4; border-radius: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a29e; }
-    .fade-in { animation: fadeIn 0.3s ease-in-out; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    .course-card:hover { transform: translateY(-2px); }
+    .week-row:nth-child(even) { background-color: #faf9f6; }
   </style>
 </head>
-<body class="bg-[#FDFBF7] min-h-screen">
-  <div id="root"></div>
-
-  <script type="text/babel">
-    const ADMIN_PASSWORD = "114-2";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyDibvsYbW5gC16EYQis1rzFSxoQx0gNUp0",
-      authDomain: "hight-money-9f10c.firebaseapp.com",
-      projectId: "hight-money-9f10c",
-      storageBucket: "hight-money-9f10c.firebasestorage.app",
-      messagingSenderId: "1079112091697",
-      appId: "1:1079112091697:web:360bac2e96f4d18b596d10",
-      measurementId: "G-S4RBDNHXBL"
-    };
-
-    let app, auth, db;
-    try {
-      if (firebaseConfig.projectId) {
-        app = firebase.initializeApp(firebaseConfig);
-        auth = firebase.auth();
-        auth.setPersistence(firebase.auth.Auth.Persistence.NONE); 
-        db = firebase.firestore();
-      }
-    } catch(e) {
-      console.error("Firebase 初始化失敗:", e);
-    }
-
-    const { useState, useMemo, useEffect, useRef } = React;
-
-    const INITIAL_PROJECT_DATA = [
-      {
-        id: 'A',
-        name: 'A類計畫 (課程與教學創新)',
-        subjects: [
-          {
-            name: '校訂必修',
-            courses: [
-              { id: 'A-1-1', name: '府城傳情', budgets: [ { id: 'A-1-1-1', category: '印刷費', desc: '明信片印刷費 115份', total: 9200 }, { id: 'A-1-1-2', category: '膳宿費', desc: '校外參訪戶外踏查用膳費 118人次', total: 11800 }, { id: 'A-1-1-3', category: '租車費', desc: '戶外踏查參訪用 3臺', total: 23700 }, { id: 'A-1-1-4', category: '材料費', desc: '課程所需實作材料 115人次', total: 17250 } ] },
-              { id: 'A-1-2', name: '專題研究', budgets: [ { id: 'A-1-2-1', category: '講座鐘點費', desc: '外聘專家講師增能講座 4節', total: 8000 } ] }
-            ]
-          },
-          {
-            name: '多元選修',
-            courses: [
-              { id: 'A-2-1', name: '生活與數學桌遊', budgets: [ { id: 'A-2-1-1', category: '講座鐘點費', desc: '外聘專家講師 16節', total: 32000 }, { id: 'A-2-1-2', category: '講座鐘點費', desc: '寒假營隊內聘或外聘 12節', total: 6600 }, { id: 'A-2-1-3', category: '膳宿費', desc: '寒假營隊用膳費 32人次', total: 3200 }, { id: 'A-2-1-4', category: '國內旅費、短程車資、運費', desc: '外聘講師高鐵來回 1人次', total: 2700 } ] },
-              { id: 'A-2-2', name: '英文真遊趣', budgets: [ { id: 'A-2-2-1', category: '講座鐘點費', desc: '外聘專家講師 6節', total: 12000 }, { id: 'A-2-2-2', category: '授課鐘點費', desc: '內聘講座 2節', total: 1100 }, { id: 'A-2-2-3', category: '講座鐘點費', desc: '寒假營隊內聘或外聘 6節', total: 3300 }, { id: 'A-2-2-4', category: '膳宿費', desc: '寒假營隊用膳費 27人次', total: 2700 }, { id: 'A-2-2-5', category: '材料費', desc: '課程所需實作材料 25人次', total: 3750 } ] },
-              { id: 'A-2-5', name: '悅讀你的世界', budgets: [ { id: 'A-2-5-1', category: '講座鐘點費', desc: '外聘專家講師 3節', total: 6000 }, { id: 'A-2-5-2', category: '講座鐘點費', desc: '寒假營隊內聘或外聘 14節', total: 7700 }, { id: 'A-2-5-3', category: '膳宿費', desc: '寒假營隊用膳費 33人次', total: 3300 }, { id: 'A-2-5-4', category: '國內旅費、短程車資、運費', desc: '外聘講師高鐵來回 1人次', total: 2700 }, { id: 'A-2-5-5', category: '租車費', desc: '戶外踏查參訪用 1臺', total: 7900 } ] },
-              { id: 'A-2-6', name: '島嶼思辨', budgets: [ { id: 'A-2-6-1', category: '講座鐘點費', desc: '外聘專家講師 2節', total: 4000 }, { id: 'A-2-6-2', category: '印刷費', desc: '策展用海報文宣 20份', total: 1600 }, { id: 'A-2-6-3', category: '國內旅費、短程車資、運費', desc: '外聘講師高鐵來回 1人次', total: 2700 }, { id: 'A-2-6-4', category: '物品費', desc: '課程成果策展用燈具 4組', total: 2000 } ] }
-            ]
-          },
-          {
-            name: '加深加廣課程',
-            courses: [
-              { id: 'A-3-1', name: '社會科探究與實作', budgets: [ { id: 'A-3-1-1', category: '講座鐘點費', desc: '外聘專家講師 10節', total: 20000 }, { id: 'A-3-1-2', category: '授課鐘點費', desc: '內聘講座 6節', total: 3300 }, { id: 'A-3-1-3', category: '講座鐘點費', desc: '寒假營隊內聘或外聘 25節', total: 13750 }, { id: 'A-3-1-4', category: '印刷費', desc: '寒假營隊手冊 100份', total: 8000 }, { id: 'A-3-1-5', category: '膳宿費', desc: '寒假營隊用膳費 130人次', total: 13000 }, { id: 'A-3-1-6', category: '國內旅費、短程車資、運費', desc: '外聘講師高鐵來回 2人次', total: 5400 }, { id: 'A-3-1-7', category: '租車費', desc: '戶外踏查參訪用 2臺', total: 15800 }, { id: 'A-3-1-8', category: '租車費(船)', desc: '高雄文化遊艇巡遊租船費', total: 17500 }, { id: 'A-3-1-9', category: '材料費', desc: '成果發表與寒假營隊 120人次', total: 18000 }, { id: 'A-3-1-10', category: '設備維護費', desc: '教學設備維修與維護', total: 15000 } ] },
-              { id: 'A-3-2', name: '自然科探究與實作', budgets: [ { id: 'A-3-2-1', category: '講座鐘點費', desc: '寒假營隊內聘或外聘 4節', total: 2200 }, { id: 'A-3-2-2', category: '膳宿費', desc: '寒假營隊用膳費 33人次', total: 3300 }, { id: 'A-3-2-3', category: '材料費', desc: '課程所需實作材料 30人次', total: 4500 } ] },
-              { id: 'A-3-3', name: '工程設計專題', budgets: [ { id: 'A-3-3-1', category: '材料費', desc: '課程所需實作材料 80人次', total: 12000 }, { id: 'A-3-3-2', category: '物品費', desc: '溫控烙鐵組 6組', total: 18000 }, { id: 'A-3-3-3', category: '設備維護費', desc: '教學設備維修與維護', total: 15000 }, { id: 'A-3-3-4', category: '設備費', desc: '立式帶鋸機、圓鋸機、微調車床等', total: 450000 } ] }
-            ]
-          },
-          {
-            name: '彈性學習',
-            courses: [
-              { id: 'A-4-1', name: '選手培訓', budgets: [ { id: 'A-4-1-1', category: '授課鐘點費', desc: '辦理選手培訓內聘講師 20節', total: 14600 } ] }
-            ]
-          },
-          {
-            name: '計畫共同經費',
-            courses: [
-              { id: 'A-Comm', name: 'A類經常門共同項目', budgets: [ { id: 'A-Comm-1', category: '雜支', desc: '成果發表耗材、辦公事務、郵資等', total: 14240 }, { id: 'A-Comm-2', category: '全民健康保險補充保費', desc: '依鐘點費總額2.11%編列', total: 2840 } ] }
-            ]
-          },
-          {
-            name: '待分類區 (匯入暫存)',
-            courses: [
-              { id: 'A-Pending', name: '未指定科目', budgets: [ { id: 'A-Pending-1', category: '待分類', desc: '系統無法自動歸類的項目，請點擊鉛筆手動移動至正確科目', total: 0 } ] }
-            ]
-          }
-        ]
-      },
-      {
-        id: 'B',
-        name: 'B類計畫 (教師社群與專業發展)',
-        subjects: [
-          {
-            name: '單科社群',
-            courses: [
-              { id: 'B-1-1', name: '數學科社群', budgets: [ { id: 'B-1-1-1', category: '講座鐘點費', desc: '外聘增能講座 3節', total: 6000 }, { id: 'B-1-1-2', category: '材料費', desc: '社群共備研習用材料 7份', total: 1050 } ] },
-              { id: 'B-1-2', name: '英文科社群', budgets: [ { id: 'B-1-2-1', category: '講座鐘點費', desc: '外聘增能講座 2節', total: 4000 } ] },
-              { id: 'B-1-3', name: '國文科社群', budgets: [ { id: 'B-1-3-1', category: '講座鐘點費', desc: '外聘增能講座 4節', total: 8000 }, { id: 'B-1-3-2', category: '印刷費', desc: '研習資料與手冊 60份', total: 4800 }, { id: 'B-1-3-3', category: '國內旅費、短程車資、運費', desc: '外聘講師高鐵來回 2人次', total: 5400 } ] }
-            ]
-          },
-          {
-            name: '跨科研習',
-            courses: [
-              { id: 'B-2-1', name: '社會科跨領域', budgets: [ { id: 'B-2-1-1', category: '講座鐘點費', desc: '外聘增能講座 9節', total: 18000 }, { id: 'B-2-1-2', category: '印刷費', desc: '研習資料與手冊 20份', total: 1600 }, { id: 'B-2-1-3', category: '膳宿費', desc: '跨科會議用膳費 20人次', total: 2000 }, { id: 'B-2-1-4', category: '國內旅費、短程車資、運費', desc: '外聘講師高鐵來回 2人次', total: 5400 }, { id: 'B-2-1-5', category: '材料費', desc: '社群共備研習用材料 20份', total: 3000 } ] },
-              { id: 'B-3-1', name: '學生自主學習共備', budgets: [ { id: 'B-3-1-1', category: '講座鐘點費', desc: '外聘增能講座 3節', total: 6000 }, { id: 'B-3-1-2', category: '印刷費', desc: '研習資料與手冊 50份', total: 4000 } ] }
-            ]
-          },
-          {
-            name: '計畫共同經費',
-            courses: [
-              { id: 'B-Comm', name: 'B類經常門共同項目', budgets: [ { id: 'B-Comm-1', category: '雜支', desc: '資訊耗材、文具、紙張等', total: 4513 }, { id: 'B-Comm-2', category: '全民健康保險補充保費', desc: '依鐘點費總額2.11%編列', total: 887 } ] }
-            ]
-          },
-          {
-            name: '待分類區 (匯入暫存)',
-            courses: [
-              { id: 'B-Pending', name: '未指定科目', budgets: [ { id: 'B-Pending-1', category: '待分類', desc: '系統無法自動歸類的項目，請點擊鉛筆手動移動至正確科目', total: 0 } ] }
-            ]
-          }
-        ]
-      },
-      {
-        id: 'C',
-        name: 'C類計畫 (學生學習與輔導)',
-        subjects: [
-          {
-            name: '增能與發展',
-            courses: [
-              { id: 'C-1', name: '學習歷程檔案工作坊', budgets: [ { id: 'C-1-1', category: '講座鐘點費', desc: '教師外聘講師增能 2節', total: 4000 }, { id: 'C-1-2', category: '印刷費', desc: '會議與工作坊資料 71份', total: 5680 }, { id: 'C-1-3', category: '膳宿費', desc: '會議及講座膳費 97人次', total: 9700 }, { id: 'C-1-4', category: '國內旅費、短程車資、運費', desc: '外聘講師交通費 1人次', total: 2700 } ] },
-              { id: 'C-2', name: '課程發展委員會', budgets: [ { id: 'C-2-1', category: '諮詢費、輔導費、指導費', desc: '專家學者諮詢 3人次', total: 7500 }, { id: 'C-2-2', category: '膳宿費', desc: '委員與學員膳食 40人次', total: 4000 }, { id: 'C-2-3', category: '國內旅費、短程車資、運費', desc: '委員交通費 2人次', total: 5400 } ] }
-            ]
-          },
-          {
-            name: '學生補助與設備',
-            courses: [
-              { id: 'C-3', name: '獎助學金與設備購置', budgets: [ { id: 'C-3-1', category: '學生獎助學金', desc: '成績優異獎學金 9人次', total: 90000 }, { id: 'C-3-2', category: '設備費', desc: '55吋觸控式螢幕解說機 1臺', total: 49000 } ] }
-            ]
-          },
-          {
-            name: '計畫共同經費',
-            courses: [
-              { id: 'C-Comm', name: 'C類經常門共同項目', budgets: [ { id: 'C-Comm-1', category: '雜支', desc: '研習、會議用紙張文具等', total: 4617 }, { id: 'C-Comm-2', category: '全民健康保險補充保費', desc: '依鐘點費總額2.11%編列', total: 243 } ] }
-            ]
-          },
-          {
-            name: '待分類區 (匯入暫存)',
-            courses: [
-              { id: 'C-Pending', name: '未指定科目', budgets: [ { id: 'C-Pending-1', category: '待分類', desc: '系統無法自動歸類的項目，請點擊鉛筆手動移動至正確科目', total: 0 } ] }
-            ]
-          }
-        ]
-      }
-    ];
-
-    const INITIAL_RECORDS = {};
-
-    const formatCurrency = (amount) => {
-      return new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits: 0 }).format(amount);
-    };
-
-    function App() {
-      const [projectData, setProjectData] = useState(INITIAL_PROJECT_DATA);
-      const [records, setRecords] = useState(INITIAL_RECORDS);
-      
-      const [newInputs, setNewInputs] = useState({});
-      const [editingRecordId, setEditingRecordId] = useState(null);
-      const [editForm, setEditForm] = useState({ amount: '', note: '', targetBudgetId: '' });
-      const [currentView, setCurrentView] = useState('DASHBOARD');
-      const [activePlanId, setActivePlanId] = useState(null);
-      const [activeCourseId, setActiveCourseId] = useState(null);
-
-      const [isSyncing, setIsSyncing] = useState(true);
-      const [isOnline, setIsOnline] = useState(false);
-      const [dbErrorMsg, setDbErrorMsg] = useState(''); 
-
-      const [isAdmin, setIsAdmin] = useState(false);
-      const [showLogin, setShowLogin] = useState(false);
-      const [passwordInput, setPasswordInput] = useState('');
-      const [alertMsg, setAlertMsg] = useState(null);
-      const [confirmConfig, setConfirmConfig] = useState(null);
-      const [importFile, setImportFile] = useState(null);
-      
-      const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
-      const [newCategoryForm, setNewCategoryForm] = useState({ category: '', desc: '', total: '' });
-
-      const fileInputRef = useRef(null);
-
-      // ✅ 修正版 useEffect：移除匿名登入，直接讀取，防止空資料覆蓋
-      useEffect(() => {
-        if (!auth || !db) {
-          const localData = localStorage.getItem('budget_records');
-          const localSchema = localStorage.getItem('budget_schema');
-          if(localData) setRecords(JSON.parse(localData));
-          if(localSchema) setProjectData(JSON.parse(localSchema));
-          setIsSyncing(false);
-          setIsOnline(false);
-          setDbErrorMsg('未連線資料庫');
-          return;
-        }
-
-        let unsubscribe = () => {};
-
-        const docRef = db.collection('public_data').doc('budget_main_records');
-        unsubscribe = docRef.onSnapshot((docSnap) => {
-          setIsSyncing(false);
-          setIsOnline(true);
-          setDbErrorMsg('');
-
-          if (docSnap.exists) {
-            const serverData = docSnap.data();
-            // 只有雲端真的有紀錄才更新，空的就保留預設值，不覆蓋成 0
-            if (serverData && serverData.data && Object.keys(serverData.data).length > 0) {
-              setRecords(serverData.data);
-            }
-            if (serverData && serverData.schema && serverData.schema.length > 0) {
-              setProjectData(serverData.schema);
-            }
-          } else {
-            // 雲端沒有文件，初始化一筆空文件（保留預設架構）
-            docRef.set({ data: INITIAL_RECORDS, schema: INITIAL_PROJECT_DATA }).catch(err => console.warn("初始化雲端失敗:", err));
-          }
-        }, (error) => {
-          console.error("Firestore 讀取失敗:", error);
-          setIsSyncing(false);
-          setIsOnline(false);
-          setDbErrorMsg('連線受阻，採用本機儲存');
-          const localData = localStorage.getItem('budget_records');
-          const localSchema = localStorage.getItem('budget_schema');
-          if(localData) setRecords(JSON.parse(localData));
-          if(localSchema) setProjectData(JSON.parse(localSchema));
-        });
-
-        return () => unsubscribe();
-      }, []);
-
-      const saveToCloudOrLocal = async (updatedRecords, updatedSchema) => {
-        const recs = updatedRecords !== undefined ? updatedRecords : records;
-        const sch = updatedSchema !== undefined ? updatedSchema : projectData;
-
-        localStorage.setItem('budget_records', JSON.stringify(recs));
-        localStorage.setItem('budget_schema', JSON.stringify(sch));
-
-        if (db) {
-          try {
-            await db.collection('public_data').doc('budget_main_records').set({ data: recs, schema: sch });
-          } catch(e) {
-            console.error("寫入雲端失敗", e);
-          }
-        }
-      }
-
-      const budgetOptions = useMemo(() => {
-        const opts = [];
-        projectData.forEach(plan => {
-          plan.subjects.forEach(subject => {
-            subject.courses.forEach(course => {
-              course.budgets.forEach(b => {
-                opts.push({ value: b.id, label: `${plan.id}類 | ${course.name} - ${b.category}` });
-              });
-            });
-          });
-        });
-        return opts;
-      }, [projectData]);
-
-      const handleConfirmAddCategory = async () => {
-        if (!newCategoryForm.category || !newCategoryForm.total) {
-          setAlertMsg("❌ 請務必填寫「類別名稱」與「預算金額」！");
-          return;
-        }
-
-        const newSchema = JSON.parse(JSON.stringify(projectData));
-        const plan = newSchema.find(p => p.id === activePlanId);
-        let found = false;
-
-        if (plan) {
-          plan.subjects.forEach(sub => {
-            const crs = sub.courses.find(c => c.id === activeCourseId);
-            if (crs) {
-              crs.budgets.push({
-                id: `${activeCourseId}-Custom-${Date.now()}`,
-                category: newCategoryForm.category.trim(),
-                desc: newCategoryForm.desc.trim() || '',
-                total: Number(newCategoryForm.total)
-              });
-              found = true;
-            }
-          });
-        }
-
-        if (found) {
-          setProjectData(newSchema);
-          await saveToCloudOrLocal(records, newSchema);
-          setShowAddCategoryModal(false);
-          setNewCategoryForm({ category: '', desc: '', total: '' });
-          setAlertMsg("✅ 成功新增自訂經費類別！");
-        }
-      };
-
-      const handleDeleteBudget = (planId, subjectName, courseId, budgetId) => {
-        if (!isAdmin) return;
-        setConfirmConfig({
-          title: '刪除經費類別',
-          message: '確定要刪除這個經費項目嗎？\n此操作將同時刪除該類別底下的「所有花費紀錄」，且無法復原！',
-          confirmText: '確定刪除',
-          isDanger: true,
-          onConfirm: async () => {
-            const newSchema = JSON.parse(JSON.stringify(projectData)); 
-            const plan = newSchema.find(p => p.id === planId);
-            if (plan) {
-              const subject = plan.subjects.find(s => s.name === subjectName);
-              if (subject) {
-                const course = subject.courses.find(c => c.id === courseId);
-                if (course) {
-                  course.budgets = course.budgets.filter(b => b.id !== budgetId);
-                }
-              }
-            }
-            const newRecords = { ...records };
-            delete newRecords[budgetId];
-            
-            setProjectData(newSchema);
-            setRecords(newRecords);
-            await saveToCloudOrLocal(newRecords, newSchema);
-            setAlertMsg("✅ 經費類別及相關紀錄已成功刪除！");
-          }
-        });
-      };
-
-      const handleCsvUpload = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        setImportFile(file); 
-        if(fileInputRef.current) fileInputRef.current.value = "";
-      };
-
-      const processImport = (isReplace) => {
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-          const text = event.target.result;
-          
-          const parseCSVText = (csvText) => {
-            let result = [];
-            let row = [];
-            let inQuotes = false;
-            let current = "";
-            for (let i = 0; i < csvText.length; i++) {
-                let char = csvText[i];
-                let nextChar = csvText[i+1];
-                if (char === '"') {
-                    if (inQuotes && nextChar === '"') {
-                        current += '"';
-                        i++; 
-                    } else {
-                        inQuotes = !inQuotes;
-                    }
-                } else if (char === ',' && !inQuotes) {
-                    row.push(current.trim());
-                    current = "";
-                } else if ((char === '\n' || char === '\r') && !inQuotes) {
-                    if (char === '\r' && nextChar === '\n') i++; 
-                    row.push(current.trim());
-                    result.push(row);
-                    row = [];
-                    current = "";
-                } else {
-                    current += char;
-                }
-            }
-            if (current || row.length > 0) {
-                row.push(current.trim());
-                result.push(row);
-            }
-            return result;
-          };
-
-          const rows = parseCSVText(text);
-          if (rows.length < 2) {
-            setAlertMsg("❌ CSV 檔案格式錯誤或無資料");
-            setImportFile(null);
-            return;
-          }
-
-          const keywords = {
-            'A-1-1': ['府城', '傳情', '明信片', '踏查'],
-            'A-1-2': ['專題研究'],
-            'A-2-1': ['數學桌遊', '桌遊'],
-            'A-2-2': ['英文', '真遊趣'],
-            'A-2-5': ['悅讀'],
-            'A-2-6': ['島嶼', '思辨', '策展', '燈具'],
-            'A-3-1': ['社會', '擴大機', '投影機', '遊艇', '新聞', '劇本'],
-            'A-3-2': ['自然'],
-            'A-3-3': ['工程', '烙鐵', '帶鋸機', '車床', '新興科技'],
-            'A-4-1': ['選手'],
-            'B-1-1': ['數學科'],
-            'B-1-2': ['英文科'],
-            'B-1-3': ['國文科'],
-            'B-2-1': ['跨領域', '跨科'],
-            'B-3-1': ['自主學習'],
-            'C-1': ['學習歷程', '檔案', '數位小組'],
-            'C-2': ['課發會', '課程發展', '諮詢', '輔導', '指導'],
-            'C-3': ['獎學金', '獎助學金', '螢幕', '解說機']
-          };
-
-          let newRecordsCount = 0;
-          let pendingCount = 0;
-          
-          let updatedRecords = isReplace ? {} : { ...records };
-
-          const parseCurrencySafe = (val) => {
-            if (!val) return 0;
-            const cleaned = val.replace(/[^0-9.-]/g, '');
-            return Math.round(parseFloat(cleaned)) || 0;
-          };
-
-          for (let i = 1; i < rows.length; i++) {
-            const row = rows[i];
-            if (row.length < 8) continue; 
-
-            const date = row[1] || '';
-            const desc = row[2] || '';
-            let planChar = row[4] ? row[4].trim().toUpperCase().replace('Ａ', 'A').replace('Ｂ', 'B').replace('Ｃ', 'C') : '';
-            if (planChar === 'E') planChar = 'A'; 
-
-            const category = row[5] || '';
-            const noteText = row[6] || ''; 
-            
-            let amount = parseCurrencySafe(row[7]);
-            if (amount <= 0 && row[3]) amount = parseCurrencySafe(row[3]) * 1000;
-
-            if (!amount || amount <= 0 || !['A','B','C'].includes(planChar) || !category) continue;
-
-            let matchedBudgetId = null;
-            let bestScore = 0;
-            const combinedText = desc + noteText;
-
-            if (category.includes('保費') || category.includes('保險')) {
-              matchedBudgetId = `${planChar}-Comm-2`;
-              bestScore = 999;
-            } else {
-              projectData.forEach(plan => {
-                if (plan.id !== planChar) return;
-                plan.subjects.forEach(subject => {
-                  subject.courses.forEach(course => {
-                    course.budgets.forEach(b => {
-                      if (b.id.includes('Pending')) return; 
-                      
-                      const isCatMatch = b.category.includes(category) || category.includes(b.category) ||
-                                         (b.category.includes('鐘點') && category.includes('鐘點')) ||
-                                         (b.category.includes('維護') && category.includes('維護')) ||
-                                         (b.category.includes('材料') && category.includes('材料'));
-
-                      if (isCatMatch || category.includes('雜支')) { 
-                        let score = isCatMatch ? 5 : 0; 
-                        if (combinedText.includes(course.name)) score += 20;
-                        if (combinedText.includes(subject.name)) score += 10;
-                        if (keywords[course.id]) {
-                          keywords[course.id].forEach(kw => { if (combinedText.includes(kw)) score += 15; });
-                        }
-                        if (course.id === 'A-3-1' && combinedText.includes('自然')) score -= 50;
-                        if (course.id === 'A-3-2' && combinedText.includes('社會')) score -= 50;
-
-                        if (score > bestScore && score > 0) {
-                          bestScore = score;
-                          matchedBudgetId = b.id;
-                        }
-                      }
-                    });
-                  });
-                });
-              });
-            }
-
-            if (!matchedBudgetId) {
-               matchedBudgetId = `${planChar}-Pending-1`;
-               pendingCount++;
-            }
-
-            if (matchedBudgetId) {
-              const newRec = {
-                id: `csv-auto-${Date.now()}-${i}`,
-                amount: amount,
-                note: `[系統匯入] ${date} ${desc} (${noteText})`.substring(0, 80)
-              };
-              if (!updatedRecords[matchedBudgetId]) updatedRecords[matchedBudgetId] = [];
-              updatedRecords[matchedBudgetId].push(newRec);
-              newRecordsCount++;
-            }
-          }
-
-          if (newRecordsCount > 0) {
-            setRecords(updatedRecords);
-            await saveToCloudOrLocal(updatedRecords, projectData);
-            let msg = `✅ 成功匯入 ${newRecordsCount} 筆資料！${isReplace ? '(舊資料已完全覆蓋清除)' : '(已附加於現有資料後)'}\n\n`;
-            if (pendingCount > 0) msg += `⚠️ 有 ${pendingCount} 筆資料放置於各計畫的「待分類區」，請手動點擊鉛筆圖示移動。`;
-            else msg += `所有資料皆已精準自動分類。`;
-            setAlertMsg(msg);
-          } else {
-            setAlertMsg("⚠️ 未能配對任何資料，請確認 CSV 檔案內是否有有效金額與子計畫代碼 (A/B/C)。");
-          }
-          setImportFile(null);
-        };
-        reader.readAsText(importFile);
-      };
-
-      const handleExportCsv = () => {
-        if (!isAdmin) return;
-        let csvContent = '\uFEFF'; 
-        csvContent += '序號,日期,說明,金額單位(千元),子計畫,經費項目,備註,"金額\n單位(元)",已送出核章,核章後已回,與會計帳核對,\n';
-        let index = 1;
-        Object.keys(records).forEach(budgetId => {
-          const planChar = budgetId.split('-')[0];
-          let categoryName = '未分類';
-          projectData.forEach(p => {
-            p.subjects.forEach(s => {
-              s.courses.forEach(c => {
-                c.budgets.forEach(b => { if (b.id === budgetId) categoryName = b.category; });
-              });
-            });
-          });
-
-          records[budgetId].forEach(rec => {
-            let date = ''; let desc = rec.note; let noteText = '';
-            const match = rec.note.match(/\[系統匯入\] (.*?) (.*?) \((.*?)\)/);
-            if (match) {
-              date = match[1].trim(); desc = match[2].trim(); noteText = match[3].trim();
-            } else { desc = rec.note; }
-
-            const amountThousands = (rec.amount / 1000).toFixed(3);
-            const escapeCSV = (str) => `"${String(str || '').replace(/"/g, '""')}"`;
-            csvContent += `${index},${escapeCSV(date)},${escapeCSV(desc)},${amountThousands},${planChar},${escapeCSV(categoryName)},${escapeCSV(noteText)},"${rec.amount}",,,,\n`;
-            index++;
-          });
-        });
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        const today = new Date();
-        link.setAttribute('download', `高優經費匯出_${today.getFullYear()}${(today.getMonth()+1).toString().padStart(2,'0')}${today.getDate().toString().padStart(2,'0')}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      };
-
-      const handleClearImported = () => {
-        if (!isAdmin) return;
-        setConfirmConfig({
-          title: '清除匯入紀錄',
-          message: '您確定要清除「所有透過 CSV 自動匯入」的紀錄嗎？\n(手動輸入的紀錄將會被安全保留)',
-          confirmText: '確定清除',
-          isDanger: true,
-          onConfirm: async () => {
-            let deletedCount = 0;
-            const updatedRecords = {};
-            Object.keys(records).forEach(budgetId => {
-              const originalLength = records[budgetId].length;
-              const filtered = records[budgetId].filter(r => !r.id.startsWith('csv-auto-') && !r.note.includes('[系統匯入]'));
-              deletedCount += (originalLength - filtered.length);
-              if (filtered.length > 0) updatedRecords[budgetId] = filtered;
-            });
-            setRecords(updatedRecords); 
-            await saveToCloudOrLocal(updatedRecords, projectData); 
-            setAlertMsg(`✅ 已成功清除 ${deletedCount} 筆匯入紀錄！`);
-          }
-        });
-      };
-
-      const handleWipeAllData = () => {
-        if (!isAdmin) return;
-        setConfirmConfig({
-          title: '嚴重警告：全部徹底清空',
-          message: '確定要清空雲端資料庫裡的「所有資料」並「還原預設架構」嗎？\n按下確定後，金額將瞬間歸 0，您手動新增或刪減的類別也會全部復原！',
-          confirmText: '確定清空歸零',
-          isDanger: true,
-          onConfirm: async () => {
-            try {
-              setRecords({}); 
-              setProjectData(INITIAL_PROJECT_DATA);
-              localStorage.removeItem('budget_records'); 
-              localStorage.removeItem('budget_schema'); 
-              
-              if (db && isOnline) {
-                await db.collection('public_data').doc('budget_main_records').set({ data: {}, schema: INITIAL_PROJECT_DATA });
-              }
-              setAlertMsg("✅ 系統資料已全部徹底清空，且架構已恢復預設值！");
-            } catch (error) {
-              setAlertMsg("❌ 清空過程發生錯誤：" + error.message);
-            }
-          }
-        });
-      };
-
-      const getStats = useMemo(() => {
-        const stats = { totalBudget: 0, totalSpent: 0, plans: {}, courses: {} };
-        projectData.forEach(plan => {
-          let planBudget = 0, planSpent = 0;
-          plan.subjects.forEach(subject => {
-            subject.courses.forEach(course => {
-              let courseBudget = 0, courseSpent = 0;
-              course.budgets.forEach(b => {
-                courseBudget += b.total;
-                const spent = (records[b.id] || []).reduce((sum, r) => sum + Number(r.amount), 0);
-                courseSpent += spent;
-              });
-              stats.courses[course.id] = { budget: courseBudget, spent: courseSpent };
-              planBudget += courseBudget; planSpent += courseSpent;
-            });
-          });
-          stats.plans[plan.id] = { budget: planBudget, spent: planSpent };
-          stats.totalBudget += planBudget; stats.totalSpent += planSpent;
-        });
-        return stats;
-      }, [records, projectData]);
-
-      const getSummary = useMemo(() => {
-        const summary = {};
-        projectData.forEach(plan => {
-          summary[plan.id] = { name: plan.name, categories: {} };
-          plan.subjects.forEach(subject => {
-            subject.courses.forEach(course => {
-              course.budgets.forEach(b => {
-                if(b.id.includes('Pending')) return; 
-                let cat = b.category;
-                if (!summary[plan.id].categories[cat]) summary[plan.id].categories[cat] = { budget: 0, spent: 0 };
-                summary[plan.id].categories[cat].budget += b.total;
-                const spent = (records[b.id] || []).reduce((sum, r) => sum + r.amount, 0);
-                summary[plan.id].categories[cat].spent += spent;
-              });
-            });
-          });
-        });
-        return summary;
-      }, [records, projectData]);
-
-      const handleInputChange = (budgetId, field, value) => {
-        setNewInputs(prev => ({ ...prev, [budgetId]: { ...(prev[budgetId] || { amount: '', note: '' }), [field]: value } }));
-      };
-
-      const handleAddRecord = (budgetId) => {
-        if (!isAdmin) return;
-        const currentInput = newInputs[budgetId];
-        if (!currentInput || !currentInput.amount || Number(currentInput.amount) <= 0) return;
-        const newRecord = { id: Date.now().toString(), amount: Number(currentInput.amount), note: currentInput.note || '' };
-        const updatedRecords = { ...records, [budgetId]: [...(records[budgetId] || []), newRecord] };
-        setRecords(updatedRecords);
-        setNewInputs(prev => ({ ...prev, [budgetId]: { amount: '', note: '' } }));
-        saveToCloudOrLocal(updatedRecords, projectData);
-      };
-
-      const handleEditClick = (rec, currentBudgetId) => {
-        if (!isAdmin) return;
-        setEditingRecordId(rec.id);
-        setEditForm({ amount: rec.amount, note: rec.note, targetBudgetId: currentBudgetId });
-      };
-
-      const handleSaveEdit = (oldBudgetId, recordId) => {
-        if (!isAdmin || !editForm.amount || Number(editForm.amount) < 0) return;
-        
-        const updatedRecords = { ...records };
-        const newBudgetId = editForm.targetBudgetId;
-
-        if (oldBudgetId === newBudgetId) {
-          updatedRecords[oldBudgetId] = updatedRecords[oldBudgetId].map(r => 
-            r.id === recordId ? { ...r, amount: Number(editForm.amount), note: editForm.note } : r
-          );
-        } else {
-          const recordToMove = updatedRecords[oldBudgetId].find(r => r.id === recordId);
-          if (recordToMove) {
-            updatedRecords[oldBudgetId] = updatedRecords[oldBudgetId].filter(r => r.id !== recordId);
-            if (updatedRecords[oldBudgetId].length === 0) delete updatedRecords[oldBudgetId];
-            
-            const movedRecord = { ...recordToMove, amount: Number(editForm.amount), note: editForm.note };
-            if (!updatedRecords[newBudgetId]) updatedRecords[newBudgetId] = [];
-            updatedRecords[newBudgetId].push(movedRecord);
-          }
-        }
-
-        setRecords(updatedRecords);
-        setEditingRecordId(null);
-        saveToCloudOrLocal(updatedRecords, projectData);
-      };
-
-      const handleDeleteRecord = (budgetId, recordId) => {
-        if (!isAdmin) return;
-        const updatedRecords = { ...records };
-        updatedRecords[budgetId] = updatedRecords[budgetId].filter(r => r.id !== recordId);
-        if (updatedRecords[budgetId].length === 0) delete updatedRecords[budgetId];
-        setRecords(updatedRecords);
-        saveToCloudOrLocal(updatedRecords, projectData);
-      };
-
-      const handleLogin = () => {
-        if (passwordInput === ADMIN_PASSWORD) {
-          setIsAdmin(true); setShowLogin(false); setPasswordInput('');
-        } else { setAlertMsg("密碼錯誤！"); }
-      };
-
-      const activePlan = projectData.find(p => p.id === activePlanId);
-      let activeCourse = null;
-      let activeSubjectName = '';
-      if (activePlan && activeCourseId) {
-        activePlan.subjects.forEach(sub => {
-          const course = sub.courses.find(c => c.id === activeCourseId);
-          if (course) { activeCourse = course; activeSubjectName = sub.name; }
-        });
-      }
-
-      return (
-        <div className="font-sans text-stone-800 pb-20 relative overflow-x-hidden min-h-screen selection:bg-amber-200">
-          
-          {alertMsg && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-               <div className="bg-white p-6 rounded-2xl max-w-sm w-full shadow-2xl fade-in">
-                 <h3 className="font-bold text-xl mb-3 text-stone-800 flex items-center"><i className="fas fa-info-circle text-amber-500 mr-2"></i>系統通知</h3>
-                 <p className="text-stone-600 whitespace-pre-wrap leading-relaxed">{alertMsg}</p>
-                 <div className="mt-5 text-right">
-                   <button onClick={() => setAlertMsg(null)} className="bg-amber-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-amber-700 transition-colors shadow-sm">知道了</button>
-                 </div>
-               </div>
-            </div>
-          )}
-          
-          {confirmConfig && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-               <div className="bg-white p-6 rounded-2xl max-w-sm w-full shadow-2xl fade-in">
-                 <h3 className={`font-bold text-xl mb-3 flex items-center ${confirmConfig.isDanger ? 'text-rose-600' : 'text-amber-700'}`}>
-                   <i className={`fas fa-exclamation-triangle mr-2`}></i>{confirmConfig.title}
-                 </h3>
-                 <p className="text-stone-600 whitespace-pre-wrap leading-relaxed mb-5">{confirmConfig.message}</p>
-                 <div className="flex justify-end space-x-3">
-                   <button onClick={() => setConfirmConfig(null)} className="px-4 py-2 bg-stone-100 text-stone-600 rounded-lg font-bold hover:bg-stone-200 transition-colors">取消</button>
-                   <button onClick={() => { confirmConfig.onConfirm(); setConfirmConfig(null); }} className={`px-4 py-2 text-white rounded-lg font-bold transition-colors shadow-sm ${confirmConfig.isDanger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
-                     {confirmConfig.confirmText}
-                   </button>
-                 </div>
-               </div>
-            </div>
-          )}
-
-          {importFile && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-               <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl fade-in">
-                 <h3 className="font-bold text-xl mb-2 text-stone-800 flex items-center"><i className="fas fa-file-import text-amber-600 mr-2"></i> 選擇匯入模式</h3>
-                 <p className="mb-5 text-stone-500 text-sm">您選擇了檔案 <b>{importFile.name}</b>，請決定要如何處理這些資料：</p>
-                 <div className="space-y-4">
-                   <button onClick={() => processImport(true)} className="w-full text-left p-4 border border-rose-200 bg-rose-50 hover:bg-rose-100 hover:border-rose-300 rounded-xl transition-all group">
-                     <div className="font-bold text-rose-700 text-lg mb-1 group-hover:text-rose-800">🚨 完全覆蓋 (推薦)</div>
-                     <div className="text-xs text-rose-600/80 leading-relaxed">清空系統內現有所有資料，完全以這份 CSV 為主。可解決金額重複累加的問題。</div>
-                   </button>
-                   <button onClick={() => processImport(false)} className="w-full text-left p-4 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-300 rounded-xl transition-all group">
-                     <div className="font-bold text-emerald-700 text-lg mb-1 group-hover:text-emerald-800">➕ 附加資料</div>
-                     <div className="text-xs text-emerald-600/80 leading-relaxed">保留系統現有資料，將 CSV 內的新資料加入進去。</div>
-                   </button>
-                 </div>
-                 <div className="mt-5 text-right border-t border-stone-100 pt-4">
-                   <button onClick={() => { setImportFile(null); if(fileInputRef.current) fileInputRef.current.value=""; }} className="px-5 py-2 bg-stone-100 text-stone-600 font-bold rounded-lg hover:bg-stone-200 transition-colors">取消匯入</button>
-                 </div>
-               </div>
-            </div>
-          )}
-
-          {showAddCategoryModal && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-               <div className="bg-white p-6 rounded-2xl max-w-sm w-full shadow-2xl fade-in">
-                 <h3 className="font-bold text-xl mb-4 text-stone-800 flex items-center"><i className="fas fa-folder-plus text-amber-600 mr-2"></i> 新增經費類別</h3>
-                 <div className="space-y-3">
-                   <div>
-                     <label className="block text-xs font-bold text-stone-500 mb-1">經費類別名稱 <span className="text-rose-500">*</span></label>
-                     <input type="text" className="w-full border border-stone-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none text-sm" placeholder="例如：交通費、雜支..." value={newCategoryForm.category} onChange={e => setNewCategoryForm({...newCategoryForm, category: e.target.value})} />
-                   </div>
-                   <div>
-                     <label className="block text-xs font-bold text-stone-500 mb-1">說明用途</label>
-                     <input type="text" className="w-full border border-stone-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none text-sm" placeholder="例如：學生參訪遊覽車資..." value={newCategoryForm.desc} onChange={e => setNewCategoryForm({...newCategoryForm, desc: e.target.value})} />
-                   </div>
-                   <div>
-                     <label className="block text-xs font-bold text-stone-500 mb-1">編列預算金額 <span className="text-rose-500">*</span></label>
-                     <div className="relative">
-                       <i className="fas fa-dollar-sign absolute left-3 top-1/2 transform -translate-y-1/2 text-stone-400"></i>
-                       <input type="number" min="0" className="w-full border border-stone-300 rounded-lg pl-8 pr-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none text-sm" placeholder="請輸入數字..." value={newCategoryForm.total} onChange={e => setNewCategoryForm({...newCategoryForm, total: e.target.value})} />
-                     </div>
-                   </div>
-                 </div>
-                 <div className="mt-6 flex justify-end space-x-3">
-                   <button onClick={() => {setShowAddCategoryModal(false); setNewCategoryForm({category:'', desc:'', total:''});}} className="px-4 py-2 bg-stone-100 text-stone-600 rounded-lg font-bold hover:bg-stone-200 transition-colors">取消</button>
-                   <button onClick={handleConfirmAddCategory} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition-colors shadow-sm">確定新增</button>
-                 </div>
-               </div>
-            </div>
-          )}
-
-          <div className="fixed top-0 left-0 w-full h-96 bg-gradient-to-br from-stone-800 via-stone-700 to-amber-900/90 pointer-events-none z-0"></div>
-          <div className="fixed top-20 right-10 w-64 h-64 bg-[#FAF9F6]/10 rounded-full blur-3xl pointer-events-none z-0"></div>
-
-          {showLogin && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl fade-in">
-                <h3 className="text-xl font-bold text-stone-800 mb-4 flex items-center"><i className="fas fa-lock text-amber-600 mr-2"></i> 管理員登入</h3>
-                <input type="password" placeholder="輸入密碼..." className="w-full border border-stone-300 rounded-lg px-4 py-2 mb-4 focus:ring-2 focus:ring-amber-500 outline-none" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} onKeyDown={e => e.key==='Enter' && handleLogin()}/>
-                <div className="flex justify-end space-x-3">
-                  <button onClick={() => setShowLogin(false)} className="px-4 py-2 rounded-lg text-stone-500 hover:bg-stone-100 transition-colors">取消</button>
-                  <button onClick={handleLogin} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 shadow-sm transition-colors">登入</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="relative z-10 flex flex-col min-h-screen">
-            <div className="text-stone-50 shadow-sm border-b border-stone-600/30">
-              <div className="max-w-6xl mx-auto px-4 py-4 md:py-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
-                <div className="flex flex-col sm:flex-row sm:items-center w-full md:w-auto gap-3">
-                  <div className="flex items-center space-x-2">
-                    <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm"><i className="fas fa-leaf text-xl md:text-2xl text-amber-100"></i></div>
-                    <h1 className="text-xl md:text-2xl font-bold tracking-wide text-stone-50">114-2 高優計畫</h1>
-                  </div>
-                  <div className="flex items-center px-3 py-1.5 rounded-full bg-black/20 text-xs md:text-sm border border-white/10 backdrop-blur-md w-fit text-stone-200">
-                    {isSyncing ? <><i className="fas fa-sync-alt fa-spin mr-1.5 text-amber-200"></i> 載入中...</> : isOnline ? <><i className="fas fa-cloud mr-1.5 text-emerald-400"></i> 同步中</> : <><i className="fas fa-exclamation-triangle mr-1.5 text-rose-400"></i> 離線單機版</>}
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2 w-full md:w-auto justify-between md:justify-end overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
-                  {!isAdmin ? (
-                    <button onClick={() => setShowLogin(true)} className="bg-stone-900/40 hover:bg-stone-800/60 px-4 py-2 rounded-lg backdrop-blur-sm border border-stone-500/30 text-stone-100 text-sm font-medium shadow-inner flex items-center whitespace-nowrap">
-                      <i className="fas fa-lock mr-2 text-amber-200"></i> 管理員登入
-                    </button>
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <button onClick={handleExportCsv} className="bg-blue-600/90 hover:bg-blue-500 px-3 py-2 rounded-lg backdrop-blur-sm border border-blue-400/50 text-white text-sm font-bold shadow-sm transition-colors flex items-center whitespace-nowrap">
-                        <i className="fas fa-file-export md:mr-2"></i> <span className="hidden md:inline">匯出 CSV</span>
-                      </button>
-                      <label className="cursor-pointer bg-emerald-600/90 hover:bg-emerald-500 px-3 py-2 rounded-lg backdrop-blur-sm border border-emerald-400/50 text-white text-sm font-bold shadow-sm transition-colors flex items-center whitespace-nowrap" title="點此上傳CSV">
-                        <i className="fas fa-file-import md:mr-2"></i> <span className="hidden md:inline">匯入 CSV</span>
-                        <input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={handleCsvUpload} />
-                      </label>
-                      <button onClick={handleWipeAllData} className="bg-rose-900/80 hover:bg-rose-800 px-3 py-2 rounded-lg backdrop-blur-sm border border-rose-600/50 text-white text-sm font-bold shadow-sm flex items-center whitespace-nowrap" title="全部清空所有資料庫">
-                        <i className="fas fa-trash-alt md:mr-1"></i> <span className="hidden md:inline">全清空</span>
-                      </button>
-                      <button onClick={() => setIsAdmin(false)} className="bg-stone-900/40 hover:bg-stone-800/60 px-3 py-2 rounded-lg backdrop-blur-sm border border-stone-500/30 text-stone-100 text-sm font-medium shadow-inner flex items-center whitespace-nowrap">
-                        <i className="fas fa-unlock-alt md:mr-1"></i> <span className="hidden md:inline">登出</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#FAF9F6]/95 backdrop-blur-md border-b border-stone-200 px-4 py-3 text-sm md:text-base text-stone-600 shadow-sm sticky top-0 z-40 transition-all">
-              <div className="max-w-6xl mx-auto flex flex-wrap items-center gap-2 md:gap-3">
-                <button onClick={() => setCurrentView('DASHBOARD')} className={`flex items-center px-2 py-1 rounded-md hover:bg-amber-50 hover:text-amber-800 transition-colors ${currentView === 'DASHBOARD' ? 'font-bold text-amber-800 bg-amber-100/50' : ''}`}><i className="fas fa-home mr-1.5 text-stone-400"></i> 首頁</button>
-                <span className="text-stone-300">/</span>
-                <button onClick={() => setCurrentView('SUMMARY')} className={`flex items-center px-2 py-1 rounded-md hover:bg-amber-50 hover:text-amber-800 transition-colors ${currentView === 'SUMMARY' ? 'font-bold text-amber-800 bg-amber-100/50' : ''}`}><i className="fas fa-table mr-1.5 text-stone-400"></i> 總表</button>
-                {currentView !== 'DASHBOARD' && currentView !== 'SUMMARY' && activePlan && (
-                  <><i className="fas fa-chevron-right text-stone-300 text-xs mt-0.5"></i><button onClick={() => { setCurrentView('PLAN'); setActiveCourseId(null); }} className={`flex items-center px-2 py-1 rounded-md hover:bg-amber-50 hover:text-amber-800 transition-colors ${currentView === 'PLAN' ? 'font-bold text-amber-800 bg-amber-100/50' : 'text-stone-600'}`}>{activePlan.name.split(' ')[0]} <span className="hidden sm:inline">&nbsp;{activePlan.name.split(' ')[1]}</span></button></>
-                )}
-                {currentView === 'COURSE' && activeCourse && (
-                  <><i className="fas fa-chevron-right text-stone-300 text-xs mt-0.5"></i><span className="font-bold text-stone-800 bg-stone-200/60 px-2 py-1 rounded-md truncate" title={activeCourse.name}>{activeCourse.name}</span></>
-                )}
-                <div className="ml-auto text-xs font-bold px-2 py-1 rounded bg-stone-100 text-stone-500">
-                  模式：{isAdmin ? <span className="text-emerald-600"><i className="fas fa-pen text-[10px] mr-1"></i>管理</span> : <span><i className="fas fa-eye text-[10px] mr-1"></i>唯讀</span>}
-                </div>
-              </div>
-            </div>
-            
-            <main className="flex-1 w-full max-w-6xl mx-auto px-3 md:px-4 py-6 md:py-8">
-              
-              {currentView === 'DASHBOARD' && (
-                <div className="space-y-6 md:space-y-8 fade-in">
-                  <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between relative overflow-hidden">
-                    <div className="relative z-10 w-full md:w-2/3">
-                      <div className="inline-block px-3 py-1 mb-3 rounded-full bg-amber-100 text-amber-800 text-xs font-bold tracking-wider">即時雲端版</div>
-                      <h2 className="text-2xl md:text-3xl font-extrabold text-stone-800 mb-3">歡迎使用經費管理系統</h2>
-                      <p className="text-sm md:text-base text-stone-600 leading-relaxed mb-4 md:mb-0">目前為 <strong className={isAdmin ? 'text-emerald-600' : 'text-stone-500'}>{isAdmin ? '編輯模式' : '唯讀模式'}</strong>。您可以點選右上方「登入」解鎖新增與修改權限，所有操作都會 <strong className="text-amber-700">即時同步儲存</strong>。</p>
-                    </div>
-                    <div className="hidden md:flex absolute -right-6 -bottom-8 opacity-5 transform -rotate-12"><i className="fas fa-seedling text-[180px] text-amber-900"></i></div>
-                  </div>
-
-                  <h3 className="text-xl font-bold text-stone-800 flex items-center mb-4"><i className="fas fa-folder-open text-amber-600 mr-2"></i> 計畫分類總覽</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
-                    {projectData.map(plan => {
-                      const stats = getStats.plans[plan.id];
-                      const progress = stats.budget > 0 ? Math.min(100, (stats.spent / stats.budget) * 100) : 0;
-                      return (
-                        <div key={plan.id} onClick={() => { setActivePlanId(plan.id); setCurrentView('PLAN'); }} className="bg-white rounded-2xl shadow-sm border border-stone-200 p-5 md:p-6 cursor-pointer hover:shadow-md hover:-translate-y-1 hover:border-amber-400 transition-all duration-300 group">
-                          <div className="flex items-center justify-between mb-5">
-                            <div className="flex items-center space-x-3">
-                              <div className="p-3 md:p-4 bg-stone-100 text-stone-600 rounded-xl group-hover:bg-amber-600 group-hover:text-white transition-colors"><i className="fas fa-layer-group text-xl md:text-2xl"></i></div>
-                              <h3 className="text-lg md:text-xl font-bold text-stone-800 leading-tight">{plan.name.split(' ')[0]}<br/><span className="text-sm text-stone-500 font-normal">{plan.name.split(' ')[1]}</span></h3>
-                            </div>
-                            <i className="fas fa-arrow-right text-stone-300 group-hover:text-amber-600 transition-colors"></i>
-                          </div>
-                          <div className="space-y-3 mb-5 p-4 bg-[#FAF9F6] rounded-xl border border-stone-100">
-                            <div className="flex justify-between text-sm"><span className="text-stone-500">預算總額</span><span className="font-semibold text-stone-700">{formatCurrency(stats.budget)}</span></div>
-                            <div className="flex justify-between text-sm"><span className="text-stone-500">已用金額</span><span className="font-bold text-amber-700">{formatCurrency(stats.spent)}</span></div>
-                            <div className="pt-2 border-t border-stone-200 flex justify-between text-sm"><span className="text-stone-600 font-medium">剩餘額度</span><span className={`font-extrabold ${stats.budget - stats.spent < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatCurrency(stats.budget - stats.spent)}</span></div>
-                          </div>
-                          <div>
-                            <div className="flex justify-between text-xs mb-1.5 text-stone-500 font-medium"><span>執行進度</span><span>{progress.toFixed(1)}%</span></div>
-                            <div className="w-full bg-stone-200 rounded-full h-2"><div className={`h-2 rounded-full transition-all duration-1000 ${progress > 100 ? 'bg-rose-500' : 'bg-gradient-to-r from-amber-400 to-amber-600'}`} style={{ width: `${Math.min(100, progress)}%` }}></div></div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {currentView === 'SUMMARY' && (
-                <div className="space-y-6 md:space-y-8 fade-in">
-                  <div className="flex justify-between items-center mb-2">
-                     <button onClick={() => setCurrentView('DASHBOARD')} className="flex items-center text-sm md:text-base text-stone-500 hover:text-stone-800 hover:-translate-x-1 transition-all bg-white py-2 px-4 rounded-full shadow-sm w-fit border border-stone-200">
-                       <i className="fas fa-arrow-left mr-2"></i> 返回首頁
-                     </button>
-                  </div>
-                  <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-stone-200 relative overflow-hidden">
-                    <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between mb-6 border-b border-stone-100 pb-4">
-                      <div><h2 className="text-xl md:text-2xl font-bold text-stone-800 flex items-center"><i className="fas fa-chart-bar text-amber-600 mr-2"></i> 系統整體經費結算</h2><p className="text-sm text-stone-500 mt-1">所有計畫加總之執行進度</p></div>
-                    </div>
-                    <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-                      <div className="bg-[#FAF9F6] p-4 rounded-xl border border-stone-100 text-center"><div className="text-stone-500 text-xs md:text-sm font-medium mb-1">所有計畫總預算</div><div className="text-xl md:text-2xl font-bold text-stone-800">{formatCurrency(getStats.totalBudget)}</div></div>
-                      <div className="bg-[#FAF9F6] p-4 rounded-xl border border-stone-100 text-center"><div className="text-stone-500 text-xs md:text-sm font-medium mb-1">累積總花費</div><div className="text-xl md:text-2xl font-bold text-amber-700">{formatCurrency(getStats.totalSpent)}</div></div>
-                      <div className="bg-[#FAF9F6] p-4 rounded-xl border border-stone-100 text-center"><div className="text-stone-500 text-xs md:text-sm font-medium mb-1">整體總可用餘額</div><div className={`text-xl md:text-2xl font-bold ${getStats.totalBudget - getStats.totalSpent < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatCurrency(getStats.totalBudget - getStats.totalSpent)}</div></div>
-                      <div className="bg-amber-100/50 p-4 rounded-xl border border-amber-200 text-center shadow-sm"><div className="text-amber-800 text-xs md:text-sm font-bold mb-1"><i className="fas fa-bolt mr-1"></i>整體總執行率</div><div className="text-2xl md:text-3xl font-black text-amber-700 drop-shadow-sm">{getStats.totalBudget > 0 ? ((getStats.totalSpent / getStats.totalBudget) * 100).toFixed(1) : 0}%</div></div>
-                    </div>
-                  </div>
-                  
-                  {Object.keys(getSummary).map(planId => {
-                    const planData = getSummary[planId];
-                    let totalBudget = 0, totalSpent = 0;
-                    return (
-                      <div key={planId} className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
-                        <div className="bg-stone-100 px-4 md:px-6 py-3 md:py-4 border-b border-stone-200 flex items-center"><div className="bg-stone-600 text-white w-8 h-8 rounded-lg flex items-center justify-center font-bold mr-3 shadow-sm">{planId}</div><h3 className="text-lg md:text-xl font-bold text-stone-800">{planId}計畫</h3></div>
-                        <div className="overflow-x-auto custom-scrollbar">
-                          <table className="w-full text-left border-collapse min-w-[500px] md:min-w-[600px]">
-                            <thead>
-                              <tr className="bg-white text-stone-500 text-xs md:text-sm tracking-wider border-b border-stone-200">
-                                <th className="px-3 md:px-6 py-3 md:py-4 font-bold border-r border-stone-100 w-1/4">經費類別</th><th className="px-3 md:px-6 py-3 md:py-4 font-bold border-r border-stone-100 w-[20%] text-right">已使用</th><th className="px-3 md:px-6 py-3 md:py-4 font-bold border-r border-stone-100 w-[20%] text-right">核定金額</th><th className="px-3 md:px-6 py-3 md:py-4 font-bold border-r border-stone-100 w-[20%] text-right">可用餘額</th><th className="px-3 md:px-6 py-3 md:py-4 font-bold w-[15%] text-right">執行率</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-stone-100">
-                              {Object.keys(planData.categories).map(cat => {
-                                const { budget, spent } = planData.categories[cat];
-                                totalBudget += budget; totalSpent += spent;
-                                const remaining = budget - spent;
-                                const progressRate = budget > 0 ? ((spent / budget) * 100).toFixed(1) : 0;
-                                return (
-                                  <tr key={cat} className="hover:bg-amber-50/50">
-                                    <td className="px-3 md:px-6 py-3 md:py-4 border-r border-stone-100 font-medium text-stone-800">{cat}</td>
-                                    <td className="px-3 md:px-6 py-3 md:py-4 border-r border-stone-100 text-right text-amber-700 font-semibold">{formatCurrency(spent)}</td>
-                                    <td className="px-3 md:px-6 py-3 md:py-4 border-r border-stone-100 text-right text-stone-600">{formatCurrency(budget)}</td>
-                                    <td className={`px-3 md:px-6 py-3 md:py-4 border-r border-stone-100 text-right font-bold ${remaining < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>{formatCurrency(remaining)}</td>
-                                    <td className="px-3 md:px-6 py-3 md:py-4 text-right text-stone-500">{progressRate}%</td>
-                                  </tr>
-                                );
-                              })}
-                              <tr className="bg-stone-50/80 border-t-2 border-stone-200">
-                                <td className="px-3 md:px-6 py-3 md:py-4 border-r border-stone-200 font-extrabold text-stone-800">分類總計</td><td className="px-3 md:px-6 py-3 md:py-4 border-r border-stone-200 text-right font-bold text-amber-800">{formatCurrency(totalSpent)}</td><td className="px-3 md:px-6 py-3 md:py-4 border-r border-stone-200 text-right font-bold text-stone-800">{formatCurrency(totalBudget)}</td><td className={`px-3 md:px-6 py-3 md:py-4 border-r border-stone-200 text-right font-extrabold ${totalBudget - totalSpent < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatCurrency(totalBudget - totalSpent)}</td><td className="px-3 md:px-6 py-3 md:py-4 text-right font-bold text-stone-800">{totalBudget > 0 ? ((totalSpent / totalBudget) * 100).toFixed(1) : 0}%</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {currentView === 'PLAN' && activePlan && (
-                <div className="space-y-6 fade-in">
-                  <div className="flex justify-between items-center mb-2">
-                     <button onClick={() => setCurrentView('DASHBOARD')} className="flex items-center text-sm md:text-base text-stone-500 hover:text-stone-800 hover:-translate-x-1 transition-all bg-white py-2 px-4 rounded-full shadow-sm w-fit border border-stone-200">
-                       <i className="fas fa-arrow-left mr-2"></i> 返回首頁
-                     </button>
-                  </div>
-                  <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-5 md:p-6 lg:p-8 flex flex-col lg:flex-row lg:items-center justify-between relative overflow-hidden gap-6">
-                    <div className="absolute -right-10 -top-10 text-stone-100 opacity-50 z-0"><i className="fas fa-layer-group text-[150px]"></i></div>
-                    <div className="relative z-10"><div className="inline-block px-3 py-1 mb-2 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">{activePlan.id} 類計畫</div><h2 className="text-xl md:text-2xl lg:text-3xl font-extrabold text-stone-800 mb-2">{activePlan.name}</h2><p className="text-stone-500 text-sm">點擊下方課程進入檢視與填寫（含待分類區）</p></div>
-                    <div className="relative z-10 flex gap-3 w-full lg:w-auto">
-                      <div className="bg-[#FAF9F6] border border-stone-100 rounded-xl p-4 flex-1"><div className="text-xs text-stone-500 mb-1">預算總額</div><div className="text-lg font-bold text-stone-800">{formatCurrency(getStats.plans[activePlan.id].budget)}</div></div>
-                      <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4 flex-1"><div className="text-xs text-emerald-600 mb-1">剩餘可用</div><div className="text-lg font-extrabold text-emerald-700">{formatCurrency(getStats.plans[activePlan.id].budget - getStats.plans[activePlan.id].spent)}</div></div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6 md:space-y-8">
-                    {activePlan.subjects.map((subject, idx) => {
-                      const isPendingArea = subject.name.includes("待分類區");
-                      return (
-                      <div key={idx} className={`bg-white rounded-2xl shadow-sm border overflow-hidden ${isPendingArea ? 'border-amber-400' : 'border-stone-200'}`}>
-                        <div className={`px-5 md:px-6 py-3 md:py-4 border-b flex items-center ${isPendingArea ? 'bg-amber-50 border-amber-200' : 'bg-stone-50 border-stone-200'}`}>
-                          <div className={`w-1.5 h-6 rounded-full mr-3 ${isPendingArea ? 'bg-amber-500' : 'bg-stone-500'}`}></div>
-                          <h3 className={`text-lg font-bold ${isPendingArea ? 'text-amber-800' : 'text-stone-800'}`}>
-                            {subject.name} {isPendingArea && <i className="fas fa-exclamation-circle ml-2 text-amber-500" title="匯入時無法配對的項目會放置於此"></i>}
-                          </h3>
-                        </div>
-                        <div className="p-5 md:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-                          {subject.courses.map(course => {
-                            const cStats = getStats.courses[course.id];
-                            const remaining = cStats.budget - cStats.spent;
-                            const isOver = remaining < 0;
-                            return (
-                              <div key={course.id} onClick={() => { setActiveCourseId(course.id); setCurrentView('COURSE'); }} className={`rounded-xl border p-4 md:p-5 cursor-pointer transition-all duration-200 group flex flex-col justify-between h-full relative overflow-hidden ${isPendingArea ? 'bg-amber-50/30 border-amber-200 hover:border-amber-500 hover:shadow-md' : 'bg-white border-stone-200 hover:border-amber-400 hover:shadow-md'}`}>
-                                {isOver && <div className="absolute top-0 right-0 w-12 h-12 overflow-hidden"><div className="bg-rose-500 text-white text-[10px] font-bold py-1 w-16 text-center transform rotate-45 translate-x-3 translate-y-2 shadow-sm">超支</div></div>}
-                                <div className="mb-4">
-                                  <div className={`font-bold text-base md:text-lg mb-1 transition-colors pr-4 ${isPendingArea ? 'text-amber-800' : 'text-stone-800 group-hover:text-amber-700'}`}>{course.name}</div>
-                                  <div className="text-xs text-stone-400 font-medium"><i className="fas fa-hashtag text-[10px] mr-0.5 opacity-50"></i>{course.id}</div>
-                                </div>
-                                <div className="bg-[#FAF9F6] rounded-lg p-3 border border-stone-100 mt-auto">
-                                  <div className="flex justify-between items-center mb-1.5"><span className="text-xs text-stone-500">編列預算</span><span className="text-sm font-semibold text-stone-700">{formatCurrency(cStats.budget)}</span></div>
-                                  <div className="flex justify-between items-center pt-1.5 border-t border-stone-200"><span className="text-xs text-stone-500">目前結餘</span><span className={`text-base font-extrabold ${isOver ? 'text-rose-600' : (remaining > 0 ? 'text-emerald-700' : 'text-stone-400')}`}>{formatCurrency(remaining)}</span></div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )})}
-                  </div>
-                </div>
-              )}
-
-              {currentView === 'COURSE' && activeCourse && (
-                <div className="fade-in">
-                  <div className="flex justify-between items-center mb-4 md:mb-6">
-                    <button onClick={() => setCurrentView('PLAN')} className="flex items-center text-sm md:text-base text-stone-500 hover:text-stone-800 hover:-translate-x-1 transition-all bg-white py-2 px-4 rounded-full shadow-sm border border-stone-200">
-                      <i className="fas fa-arrow-left mr-2"></i> 返回 {activePlan?.name.split(' ')[0]}
-                    </button>
-                  </div>
-
-                  <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
-                    <div className="bg-stone-50 px-4 md:px-6 lg:px-8 py-5 md:py-6 border-b border-stone-200 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 relative overflow-hidden">
-                      <div className="absolute right-0 top-0 text-stone-200 opacity-40 transform rotate-12 -translate-y-4 pointer-events-none"><i className="fas fa-book-open text-[120px]"></i></div>
-                      <div className="relative z-10">
-                        <div className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800 mb-2 border border-amber-200 shadow-sm">{activePlan?.id}-{activeSubjectName}</div>
-                        <h2 className="text-2xl md:text-3xl font-extrabold text-stone-800">{activeCourse.name}</h2>
-                        <p className="text-sm text-stone-500 mt-1 font-medium"><i className="fas fa-hashtag text-[10px] mr-1 opacity-60"></i>{activeCourse.id}</p>
-                      </div>
-                      <div className="relative z-10 flex flex-wrap gap-3 md:gap-4 w-full lg:w-auto">
-                        <div className="bg-white border border-stone-200 rounded-xl p-3 md:p-4 flex-1 min-w-[110px] shadow-sm">
-                          <div className="text-[10px] md:text-xs text-stone-500 font-medium mb-1">總預算</div>
-                          <div className="text-base md:text-lg font-bold text-stone-800">{formatCurrency(getStats.courses[activeCourse.id].budget)}</div>
-                        </div>
-                        <div className="bg-white border border-amber-100 rounded-xl p-3 md:p-4 flex-1 min-w-[110px] shadow-sm">
-                          <div className="text-[10px] md:text-xs text-amber-600 font-bold mb-1">總花費</div>
-                          <div className="text-base md:text-lg font-bold text-amber-700">{formatCurrency(getStats.courses[activeCourse.id].spent)}</div>
-                        </div>
-                        <div className={`border rounded-xl p-3 md:p-4 flex-1 min-w-[110px] shadow-sm ${getStats.courses[activeCourse.id].budget - getStats.courses[activeCourse.id].spent < 0 ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
-                          <div className={`text-[10px] md:text-xs font-bold mb-1 ${getStats.courses[activeCourse.id].budget - getStats.courses[activeCourse.id].spent < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>總剩餘</div>
-                          <div className={`text-base md:text-xl font-extrabold ${getStats.courses[activeCourse.id].budget - getStats.courses[activeCourse.id].spent < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
-                            {formatCurrency(getStats.courses[activeCourse.id].budget - getStats.courses[activeCourse.id].spent)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="overflow-x-auto custom-scrollbar">
-                      <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-full">
-                        <thead>
-                          <tr className="bg-white text-stone-500 text-xs md:text-sm uppercase tracking-wider border-b-2 border-stone-200">
-                            <th className="px-3 md:px-6 py-3 md:py-4 font-bold w-[18%]">
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                <span>類別</span>
-                                {isAdmin && !activeCourse.id.includes('Pending') && (
-                                  <button onClick={() => setShowAddCategoryModal(true)} className="bg-emerald-500 text-white hover:bg-emerald-600 px-2 py-1 rounded text-[10px] md:text-xs transition-colors shadow-sm flex items-center whitespace-nowrap w-fit">
-                                    <i className="fas fa-plus mr-1"></i> 新增
-                                  </button>
-                                )}
-                              </div>
-                            </th>
-                            <th className="px-3 md:px-6 py-3 md:py-4 font-bold w-[20%]">說明用途</th>
-                            <th className="px-3 md:px-6 py-3 md:py-4 font-bold w-[12%] text-right">預算</th>
-                            <th className="px-3 md:px-6 py-3 md:py-4 font-bold w-[12%] text-right">累積花費</th>
-                            <th className="px-3 md:px-6 py-3 md:py-4 font-bold text-right w-[12%]">剩餘</th>
-                            <th className="px-3 md:px-6 py-3 md:py-4 font-bold w-[22%]">備註/紀錄</th>
-                            <th className="px-2 md:px-4 py-3 md:py-4 font-bold text-center w-[10%]">操作</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white">
-                          {activeCourse.budgets.map(item => {
-                            const itemRecords = records[item.id] || [];
-                            const spent = itemRecords.reduce((sum, r) => sum + r.amount, 0);
-                            const remaining = item.total - spent;
-                            const currentInput = newInputs[item.id] || { amount: '', note: '' };
-                            const isPending = item.id.includes('Pending');
-
-                            return (
-                              <React.Fragment key={item.id}>
-                                <tr className="bg-[#FAF9F6] border-t-[3px] border-stone-200">
-                                  <td className="px-3 md:px-6 py-3 md:py-4 align-top md:align-middle"><span className={`inline-flex items-center px-2 py-1 rounded text-[10px] md:text-xs font-bold border whitespace-nowrap shadow-sm ${isPending ? 'bg-amber-200 text-amber-800 border-amber-300' : 'bg-stone-200 text-stone-700 border-stone-300'}`}>{item.category}</span></td>
-                                  <td className={`px-3 md:px-6 py-3 md:py-4 align-top md:align-middle font-medium text-xs md:text-sm ${isPending ? 'text-amber-800' : 'text-stone-800'}`}>{item.desc}</td>
-                                  <td className="px-3 md:px-6 py-3 md:py-4 align-top md:align-middle text-right font-bold text-stone-500 text-xs md:text-sm whitespace-nowrap">{formatCurrency(item.total)}</td>
-                                  <td className="px-3 md:px-6 py-3 md:py-4 align-top md:align-middle text-right font-bold text-amber-700 text-sm md:text-base whitespace-nowrap">{formatCurrency(spent)}</td>
-                                  <td className="px-3 md:px-6 py-3 md:py-4 align-top md:align-middle text-right"><span className={`font-extrabold text-sm md:text-base whitespace-nowrap px-2 py-0.5 rounded shadow-sm ${remaining < 0 ? 'bg-rose-50 text-rose-600 border border-rose-200' : (remaining > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'text-stone-400')}`}>{formatCurrency(remaining)}</span></td>
-                                  <td className="px-3 md:px-6 py-3 md:py-4 align-top md:align-middle text-[10px] md:text-xs text-stone-400 font-medium">{itemRecords.length > 0 ? <span className="bg-stone-200/50 px-2 py-1 rounded-md text-stone-600"><i className="fas fa-history mr-1 opacity-70"></i>已有 {itemRecords.length} 筆</span> : '無紀錄'}</td>
-                                  <td className="px-2 md:px-4 py-3 md:py-4 align-top md:align-middle bg-[#FAF9F6] text-center">
-                                    {isAdmin && !isPending && (
-                                      <button onClick={() => handleDeleteBudget(activePlan.id, activeSubjectName, activeCourse.id, item.id)} className="text-stone-300 hover:text-rose-500 transition-colors p-1" title="刪除此經費類別">
-                                        <i className="fas fa-trash-alt"></i>
-                                      </button>
-                                    )}
-                                  </td>
-                                </tr>
-                                
-                                {itemRecords.map((rec, idx) => (
-                                  editingRecordId === rec.id ? (
-                                    <tr key={`edit-${rec.id}`} className="border-t border-amber-200 bg-amber-50/70">
-                                      <td colSpan="2" className="px-3 md:px-6 py-2 align-middle">
-                                        <div className="flex flex-col space-y-1">
-                                          <span className="text-[10px] md:text-xs text-amber-700 font-bold"><i className="fas fa-exchange-alt mr-1"></i> 修改歸屬項目 (可移至他科)</span>
-                                          <select value={editForm.targetBudgetId} onChange={(e) => setEditForm({...editForm, targetBudgetId: e.target.value})} className="block w-full px-2 py-1 text-[10px] md:text-xs border-amber-200 rounded shadow-sm outline-none bg-white focus:ring-1 focus:ring-amber-500 text-stone-700 max-w-[250px]">
-                                            {budgetOptions.filter(o => !o.value.includes('Pending')).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                                          </select>
-                                        </div>
-                                      </td>
-                                      <td colSpan="2" className="px-3 md:px-6 py-2 align-middle">
-                                        <div className="relative flex items-center">
-                                          <i className="fas fa-dollar-sign absolute left-3 text-stone-400 text-xs"></i>
-                                          <input type="number" className="block w-full pl-7 pr-2 py-1.5 text-xs md:text-sm border-amber-200 rounded shadow-sm outline-none bg-white focus:ring-1 focus:ring-amber-500 focus:border-amber-500" value={editForm.amount} onChange={(e) => setEditForm({...editForm, amount: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit(item.id, rec.id)} />
-                                        </div>
-                                      </td>
-                                      <td colSpan="2" className="px-3 md:px-6 py-2 align-middle">
-                                        <input type="text" className="block w-full px-3 py-1.5 text-xs md:text-sm border-amber-200 rounded shadow-sm outline-none bg-white focus:ring-1 focus:ring-amber-500 focus:border-amber-500" placeholder="備註說明" value={editForm.note} onChange={(e) => setEditForm({...editForm, note: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit(item.id, rec.id)} />
-                                      </td>
-                                      <td className="px-2 md:px-4 py-2 align-middle flex justify-center space-x-2">
-                                        <button onClick={() => handleSaveEdit(item.id, rec.id)} className="text-white bg-emerald-600 hover:bg-emerald-700 p-1.5 rounded shadow-sm transition-colors" title="儲存"><i className="fas fa-check text-xs"></i></button>
-                                        <button onClick={() => {setEditingRecordId(null); setEditForm({amount:'', note:'', targetBudgetId: ''})}} className="text-stone-500 bg-stone-200 hover:bg-stone-300 p-1.5 rounded shadow-sm transition-colors" title="取消"><i className="fas fa-times text-xs"></i></button>
-                                      </td>
-                                    </tr>
-                                  ) : (
-                                    <tr key={rec.id} className={`border-t border-stone-100 hover:bg-stone-50 group transition-colors ${isPending ? 'bg-amber-50/20' : ''}`}>
-                                      <td colSpan="2" className="px-3 md:px-6 py-1.5 md:py-2 text-[10px] md:text-xs text-stone-400 text-right align-middle"><i className="fas fa-caret-right mr-1 opacity-50"></i> 第 {idx + 1} 筆</td>
-                                      <td colSpan="2" className="px-3 md:px-6 py-1.5 md:py-2 align-middle text-right font-bold text-stone-700 text-xs md:text-sm whitespace-nowrap">{formatCurrency(rec.amount)}</td>
-                                      <td colSpan="2" className="px-3 md:px-6 py-1.5 md:py-2 align-middle text-[11px] md:text-xs text-stone-500">{rec.note || '-'}</td>
-                                      <td className="px-2 md:px-4 py-1.5 md:py-2 align-middle flex justify-center space-x-2 md:space-x-3 opacity-40 group-hover:opacity-100 transition-opacity">
-                                        {isAdmin ? (
-                                          <>
-                                            <button onClick={() => handleEditClick(rec, item.id)} className="text-amber-500 hover:text-amber-700 hover:bg-amber-100 p-1.5 rounded-full transition-colors" title="編輯或移動"><i className="fas fa-pencil-alt text-xs md:text-sm"></i></button>
-                                            <button onClick={() => handleDeleteRecord(item.id, rec.id)} className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-full transition-colors" title="刪除"><i className="fas fa-trash-alt text-xs md:text-sm"></i></button>
-                                          </>
-                                        ) : (
-                                          <span className="text-[10px] text-stone-300">唯讀</span>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  )
-                                ))}
-                                
-                                {isAdmin && !isPending && (
-                                  <tr className="border-t border-stone-200 bg-amber-50/40">
-                                    <td colSpan="2" className="px-3 md:px-6 py-2.5 md:py-3 text-[11px] md:text-sm text-amber-700 text-right font-bold align-middle"><i className="fas fa-plus-circle mr-1"></i> 新增紀錄</td>
-                                    <td colSpan="2" className="px-3 md:px-6 py-2.5 md:py-3 align-middle">
-                                      <div className="relative flex items-center min-w-[120px]">
-                                        <i className="fas fa-dollar-sign absolute left-3 text-amber-500 text-xs md:text-sm"></i>
-                                        <input type="number" min="0" className="block w-full pl-7 pr-2 py-1.5 md:py-2 text-xs md:text-sm border-amber-200 rounded-lg shadow-sm border outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all bg-white" placeholder="輸入金額" value={currentInput.amount} onChange={(e) => handleInputChange(item.id, 'amount', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddRecord(item.id)} />
-                                      </div>
-                                    </td>
-                                    <td colSpan="2" className="px-3 md:px-6 py-2.5 md:py-3 align-middle">
-                                      <input type="text" className="block w-full min-w-[150px] px-3 py-1.5 md:py-2 text-xs md:text-sm border-amber-200 rounded-lg shadow-sm border outline-none placeholder-stone-400 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all bg-white" placeholder="備註說明 (按Enter即可新增)..." value={currentInput.note} onChange={(e) => handleInputChange(item.id, 'note', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddRecord(item.id)} />
-                                    </td>
-                                    <td className="px-2 md:px-4 py-2.5 md:py-3 align-middle text-center">
-                                      <button onClick={() => handleAddRecord(item.id)} disabled={!currentInput.amount || Number(currentInput.amount) <= 0} className="inline-flex items-center justify-center px-3 py-1.5 md:py-2 border border-transparent text-xs md:text-sm font-bold rounded-lg shadow-md text-white bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 disabled:shadow-none w-full transition-all active:scale-95"><i className="fas fa-paper-plane md:mr-1.5"></i> <span className="hidden md:inline">送出</span></button>
-                                    </td>
-                                  </tr>
-                                )}
-                              </React.Fragment>
-                            );
-                          })}
-                          
-                          {isAdmin && !activeCourse.id.includes('Pending') && (
-                            <tr className="bg-emerald-50/40 border-t border-emerald-200">
-                              <td colSpan="7" className="px-3 md:px-6 py-4 text-center">
-                                <button onClick={() => setShowAddCategoryModal(true)} className="inline-flex items-center justify-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 shadow-sm transition-all text-sm font-bold w-full md:w-auto">
-                                  <i className="fas fa-plus-circle mr-2"></i> 找不到適合的項目？新增經費類別
-                                </button>
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                    
-                    <div className="bg-stone-50 px-4 md:px-6 py-3 border-t border-stone-200 text-xs text-stone-500 flex items-center justify-between font-medium">
-                      <span>
-                        {isAdmin ? <><i className="fas fa-lightbulb text-amber-500 mr-1.5"></i> 小提示：在輸入框按 <b className="bg-stone-200 px-1.5 rounded text-stone-700 mx-1">Enter</b> 鍵即可快速連續新增</> : <><i className="fas fa-lock text-stone-400 mr-1.5"></i> 您目前處於唯讀模式，無法編輯</>}
-                      </span>
-                      <span className="hidden md:inline"><i className="fas fa-check-circle text-emerald-600 mr-1.5"></i> 自動儲存</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </main>
-            
-            <footer className="w-full text-center py-6 text-xs text-stone-400 mt-auto font-medium tracking-wide">
-              <p>高優計畫經費管理系統 &copy; 2024 <i className="fas fa-leaf mx-1 text-amber-700/30"></i> 雲端即時版</p>
-            </footer>
+<body class="bg-[#FDFBF7] min-h-screen font-sans text-stone-800">
+
+  <!-- 背景裝飾 -->
+  <div class="fixed top-0 left-0 w-full h-96 bg-gradient-to-br from-stone-800 via-stone-700 to-amber-900/90 pointer-events-none z-0"></div>
+  <div class="fixed top-20 right-10 w-64 h-64 bg-white/5 rounded-full blur-3xl pointer-events-none z-0"></div>
+
+  <div class="relative z-10 min-h-screen flex flex-col">
+    <!-- 頂部導覽列 -->
+    <header class="text-stone-50 border-b border-stone-600/30">
+      <div class="max-w-6xl mx-auto px-4 py-5 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="bg-white/10 p-2.5 rounded-xl backdrop-blur-sm">
+            <i class="fas fa-book-open text-2xl text-amber-200"></i>
+          </div>
+          <div>
+            <h1 class="text-2xl font-extrabold tracking-wide">114-2 多元選修課程查詢</h1>
+            <p class="text-stone-300 text-xs mt-0.5">Department of Curriculum · 大灣高中</p>
           </div>
         </div>
+        <div class="hidden md:flex items-center px-3 py-1.5 rounded-full bg-black/20 text-xs border border-white/10 text-stone-200">
+          <i class="fas fa-layer-group mr-2 text-amber-300"></i> 共 33 門課程
+        </div>
+      </div>
+    </header>
+
+    <!-- 麵包屑 -->
+    <div id="breadcrumb" class="bg-[#FAF9F6]/95 backdrop-blur-md border-b border-stone-200 px-4 py-3 sticky top-0 z-40 shadow-sm">
+      <div class="max-w-6xl mx-auto flex items-center gap-2 text-sm text-stone-600">
+        <button onclick="showList()" class="hover:text-amber-700 transition-colors flex items-center">
+          <i class="fas fa-home mr-1.5 text-stone-400"></i> 首頁
+        </button>
+        <span id="bc-sep" class="text-stone-300 hidden">/</span>
+        <span id="bc-course" class="font-bold text-stone-800 hidden"></span>
+      </div>
+    </div>
+
+    <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-8">
+      <!-- 列表視圖 -->
+      <div id="list-view" class="fade-in">
+        <!-- 搜尋區 -->
+        <div class="mb-8">
+          <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 md:p-8 relative overflow-hidden">
+            <div class="absolute -right-8 -bottom-8 text-stone-100 opacity-60 pointer-events-none">
+              <i class="fas fa-search text-[130px]"></i>
+            </div>
+            <div class="relative z-10">
+              <div class="inline-block px-3 py-1 mb-3 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">課程資料庫</div>
+              <h2 class="text-2xl md:text-3xl font-extrabold text-stone-800 mb-2">輸入課程名稱查詢</h2>
+              <p class="text-stone-500 text-sm mb-5">可搜尋中文名稱、英文名稱或關鍵字</p>
+              <div class="relative max-w-xl">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"></i>
+                <input id="search-input" type="text" placeholder="例如：Python、日本語、數學..." 
+                  class="w-full pl-12 pr-4 py-3.5 rounded-xl border border-stone-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none text-stone-800 text-base shadow-sm transition-all"
+                  oninput="filterCourses(this.value)" />
+                <button onclick="document.getElementById('search-input').value=''; filterCourses('')" 
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-stone-300 hover:text-stone-500 transition-colors text-lg">
+                  <i class="fas fa-times-circle"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 結果計數 -->
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold text-stone-700 flex items-center">
+            <i class="fas fa-th-large text-amber-600 mr-2"></i>
+            <span id="result-count">全部 33 門課程</span>
+          </h3>
+        </div>
+
+        <!-- 課程卡片格 -->
+        <div id="courses-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        </div>
+
+        <!-- 無結果 -->
+        <div id="no-result" class="hidden text-center py-20 text-stone-400">
+          <i class="fas fa-inbox text-5xl mb-4 text-stone-300"></i>
+          <p class="text-xl font-bold text-stone-500">找不到符合的課程</p>
+          <p class="text-sm mt-1">試試其他關鍵字</p>
+        </div>
+      </div>
+
+      <!-- 課程詳細視圖 -->
+      <div id="detail-view" class="hidden fade-in">
+        <button onclick="showList()" class="mb-6 flex items-center text-stone-500 hover:text-stone-800 hover:-translate-x-1 transition-all bg-white py-2 px-4 rounded-full shadow-sm border border-stone-200 text-sm">
+          <i class="fas fa-arrow-left mr-2"></i> 返回課程列表
+        </button>
+        <div id="detail-content"></div>
+      </div>
+    </main>
+
+    <footer class="text-center py-6 text-xs text-stone-400 font-medium">
+      大灣高中 114-2 多元選修課程查詢系統 &copy; 2025 <i class="fas fa-leaf mx-1 text-amber-700/30"></i>
+    </footer>
+  </div>
+
+  <script>
+  const COURSES = [{"name": "Python入門", "name_en": "Python Introduction", "授課年段": "二上", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "科技、資訊", "師資來源": "外聘(其他)", "課綱核心素養": "A自主行動：\nA2.系統思考與問題解決, A3.規劃執行與創新應變,\nB溝通互動：\nB1.符號運用與溝通表達, B2.科技資訊與媒體素養,\nC社會參與：\nC2.人際關係與團隊合作,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom),", "學習目標": "1. 瞭解Python語言歷史\n2. 學習Python語言基本語法\n3. 學習套件\n4. 學習資料分析", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\nPython簡介\nPython簡介\n二\nPython環境建置\nPython環境建置\n三\n變數、資料型態、輸出輸入\n變數、資料型態、輸出輸入\n四\n運算元與運算式\n運算元與運算式\n五\n內建函數\n內建函數\n六\n判斷結構\nif...else、switch\n七\n迴圈結構\nFor-In、While-Loop、Repeat-While\n八\n資料型別\n資料型別\n九\n期中考\n期中考\n十\nFUNCTION\nFUNCTION\n十一\nPython 套件管理\nPython 套件管理\n十二\nNumpy\nNumpy模組\n十三\nMatplotlib\nMatplotlib模組\n十四\nPandas\nPandas模組\n十五\n期末專題\n期末專題製作\n十六\n期末專題\n期末專題製作\n十七\n期末專題\n期末專題報告\n十八\n期末專題\n期末專題報告\n十九\n二十\n二十一\n二十二", "學習評量": "出席：10%  課堂表現：10%\n課堂練習作業：20%\n期中考：20%\n報告內容規劃包含主題背景、問題分析、研究方法、數據呈現及結論建議。方式以小組合作、簡報展示為主，輔以書面報告。學生學習成效評估包括內容完整性、邏輯性、創意性、小組合作與表達能力等多面向。\n期末project：40%", "備註": "本課程作業繁重，有期中考及期末專題，非誠勿擾", "schedule": [{"week": "一", "topic": "Python簡介", "content": "Python簡介"}, {"week": "二", "topic": "Python環境建置", "content": "Python環境建置"}, {"week": "三", "topic": "變數、資料型態、輸出輸入", "content": "變數、資料型態、輸出輸入"}, {"week": "四", "topic": "運算元與運算式", "content": "運算元與運算式"}, {"week": "五", "topic": "內建函數", "content": "內建函數"}, {"week": "六", "topic": "判斷結構", "content": "if...else、switch"}, {"week": "七", "topic": "迴圈結構", "content": "For-In、While-Loop、Repeat-While"}, {"week": "八", "topic": "資料型別", "content": "資料型別"}, {"week": "九", "topic": "期中考", "content": "期中考"}, {"week": "十", "topic": "FUNCTION", "content": "FUNCTION"}, {"week": "十一", "topic": "Python 套件管理", "content": "Python 套件管理"}, {"week": "十二", "topic": "Numpy", "content": "Numpy模組"}, {"week": "十三", "topic": "Matplotlib", "content": "Matplotlib模組"}, {"week": "十四", "topic": "Pandas", "content": "Pandas模組"}, {"week": "十五", "topic": "期末專題", "content": "期末專題製作"}, {"week": "十六", "topic": "期末專題", "content": "期末專題製作"}, {"week": "十七", "topic": "期末專題", "content": "期末專題報告"}, {"week": "十八", "topic": "期末專題", "content": "期末專題報告"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "大灣故事屋", "name_en": "DaWan Story House", "授課年段": "二上、二下", "學分總數": "2", "課程屬性": "實作(實驗)及探索體驗", "議題融入": "環境", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA2.系統思考與問題解決,\nB溝通互動：\nB1.符號運用與溝通表達,\nC社會參與：\nC2.人際關係與團隊合作,", "學生圖像": "", "學習目標": "培養學生對所居住地區的興趣和了解。 提高學生的敘事能力和問卷訪談技巧。 促進學生與當地社區的連結和互動。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n課程介紹與地方學概述\n介紹課程目標和內容。 示範一些成功的地方學案例。\n二\n社區調查與初步觀察\n學生進行社區初步觀察，記錄他們所看到的、聽到的和感受到的。 學生討論和分享他們的發現\n三\n介紹印象深刻的大灣食物\n學生討論和分享他們的印象深刻的大灣食物\n四\n敘事基礎知識\n敘事結構：角色、情節、主題等。 示範如何寫一個引人入勝的故事。\n五\n問卷訪談準備\n介紹問卷訪談的重要性和技巧。 示範如何準備問卷和進行有效的訪談。 學生開始編制他們自己的問卷。\n六\n實地訪談\n學生在社區中進行問卷訪談，採集故事和觀點。 學生整理、分析訪談結果。\n七\n實地訪談\n學生在社區中進行問卷訪談，採集故事和觀點。 學生整理、分析訪談結果。\n八\n故事撰寫與反饋\n學生撰寫自己的故事草稿，並在小組內進行反饋和修訂。 學生持續改進他們的故事，確保內容生動有趣。\n九\n故事撰寫與反饋\n學生撰寫自己的故事草稿，並在小組內進行反饋和修訂。 學生持續改進他們的故事，確保內容生動有趣。\n十\n故事呈現與分享\n學生準備以各種形式呈現他們的故事：文字、圖像、視頻等。 學生在班級中分享他們的故事，並接受同儕和老師的評論和建議。\n十一\n探索大灣在地文化\n學生們通過閱讀、影片觀賞等方式，深入了解目的地的文化背景。\n十二\n探索大灣在地文化\n安排學生們進行旅行踏查的準備工作，例如製作行程表、確認交通等。\n十三\n社區踏查與紀錄\n安排實地探索活動，包括參觀景點、體驗傳統文化等。 學生們透過實際的體驗，深入了解大灣各社區。\n十四\n社區踏查與紀錄\n安排實地探索活動，包括參觀景點、體驗傳統文化等。 學生們透過實際的體驗，深入了解大灣各社區。\n十五\n社區踏查與紀錄\n安排實地探索活動，包括參觀景點、體驗傳統文化等。 學生們透過實際的體驗，深入了解大灣各社區。\n十六\n大灣故事屋彙整報告\n學生們根據自己的興趣和體驗，準備一個有關大灣社區的報告。 在最後的課程中，學生們展示他們的報告，分享他們對當地的深入了解和個人見解。\n十七\n大灣故事屋彙整報告\n學生們根據自己的興趣和體驗，準備一個有關大灣社區的報告。 在最後的課程中，學生們展示他們的報告，分享他們對當地的深入了解和個人見解。\n十八\n課程回顧與成果展示\n學生回顧整個課程的學習過程和成果。 學生展示他們的故事成果，分享他們的心得和收穫。\n十九\n課程回顧與成果展示\n學生回顧整個課程的學習過程和成果。 學生展示他們的故事成果，分享他們的心得和收穫。\n二十\n學習歷程檔案整理\n學生後設自己的學習與成長，進行整理並上傳學習歷程檔案。\n二十一\n學習歷程檔案整理\n學生後設自己的學習與成長，進行整理並上傳學習歷程檔案。\n二十二\n學習歷程檔案整理\n學生後設自己的學習與成長，進行整理並上傳學習歷程檔案。", "學習評量": "出席10%\n參與課堂討論、活動和作業的程度30%\n故事呈現：學生的大灣故事是否內容豐富、足夠吸引人30%\n問卷訪談報告：學生對社區的理解是否深入，訪談後整理的故事是否引人入勝。30%", "備註": "", "schedule": [{"week": "一", "topic": "課程介紹與地方學概述", "content": "介紹課程目標和內容。 示範一些成功的地方學案例。"}, {"week": "二", "topic": "社區調查與初步觀察", "content": "學生進行社區初步觀察，記錄他們所看到的、聽到的和感受到的。 學生討論和分享他們的發現"}, {"week": "三", "topic": "介紹印象深刻的大灣食物", "content": "學生討論和分享他們的印象深刻的大灣食物"}, {"week": "四", "topic": "敘事基礎知識", "content": "敘事結構：角色、情節、主題等。 示範如何寫一個引人入勝的故事。"}, {"week": "五", "topic": "問卷訪談準備", "content": "介紹問卷訪談的重要性和技巧。 示範如何準備問卷和進行有效的訪談。 學生開始編制他們自己的問卷。"}, {"week": "六", "topic": "實地訪談", "content": "學生在社區中進行問卷訪談，採集故事和觀點。 學生整理、分析訪談結果。"}, {"week": "七", "topic": "實地訪談", "content": "學生在社區中進行問卷訪談，採集故事和觀點。 學生整理、分析訪談結果。"}, {"week": "八", "topic": "故事撰寫與反饋", "content": "學生撰寫自己的故事草稿，並在小組內進行反饋和修訂。 學生持續改進他們的故事，確保內容生動有趣。"}, {"week": "九", "topic": "故事撰寫與反饋", "content": "學生撰寫自己的故事草稿，並在小組內進行反饋和修訂。 學生持續改進他們的故事，確保內容生動有趣。"}, {"week": "十", "topic": "故事呈現與分享", "content": "學生準備以各種形式呈現他們的故事：文字、圖像、視頻等。 學生在班級中分享他們的故事，並接受同儕和老師的評論和建議。"}, {"week": "十一", "topic": "探索大灣在地文化", "content": "學生們通過閱讀、影片觀賞等方式，深入了解目的地的文化背景。"}, {"week": "十二", "topic": "探索大灣在地文化", "content": "安排學生們進行旅行踏查的準備工作，例如製作行程表、確認交通等。"}, {"week": "十三", "topic": "社區踏查與紀錄", "content": "安排實地探索活動，包括參觀景點、體驗傳統文化等。 學生們透過實際的體驗，深入了解大灣各社區。"}, {"week": "十四", "topic": "社區踏查與紀錄", "content": "安排實地探索活動，包括參觀景點、體驗傳統文化等。 學生們透過實際的體驗，深入了解大灣各社區。"}, {"week": "十五", "topic": "社區踏查與紀錄", "content": "安排實地探索活動，包括參觀景點、體驗傳統文化等。 學生們透過實際的體驗，深入了解大灣各社區。"}, {"week": "十六", "topic": "大灣故事屋彙整報告", "content": "學生們根據自己的興趣和體驗，準備一個有關大灣社區的報告。 在最後的課程中，學生們展示他們的報告，分享他們對當地的深入了解和個人見解。"}, {"week": "十七", "topic": "大灣故事屋彙整報告", "content": "學生們根據自己的興趣和體驗，準備一個有關大灣社區的報告。 在最後的課程中，學生們展示他們的報告，分享他們對當地的深入了解和個人見解。"}, {"week": "十八", "topic": "課程回顧與成果展示", "content": "學生回顧整個課程的學習過程和成果。 學生展示他們的故事成果，分享他們的心得和收穫。"}, {"week": "十九", "topic": "課程回顧與成果展示", "content": "學生回顧整個課程的學習過程和成果。 學生展示他們的故事成果，分享他們的心得和收穫。"}, {"week": "二十", "topic": "學習歷程檔案整理", "content": "學生後設自己的學習與成長，進行整理並上傳學習歷程檔案。"}, {"week": "二十一", "topic": "學習歷程檔案整理", "content": "學生後設自己的學習與成長，進行整理並上傳學習歷程檔案。"}, {"week": "二十二", "topic": "學習歷程檔案整理", "content": "學生後設自己的學習與成長，進行整理並上傳學習歷程檔案。"}]}, {"name": "日本語初級", "name_en": "Japanese Lesson", "授課年段": "二上、二下、三上、三下", "學分總數": "2", "課程屬性": "通識性課程", "議題融入": "多元文化, 閱讀素養", "師資來源": "外聘(大學)", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進, A2.系統思考與問題解決\nB溝通互動：\nB1.符號運用與溝通表達, B3.藝術涵養與美感素養\nC社會參與：\nC2.人際關係與團隊合作, C3.多元文化與國際理解", "學生圖像": "發展力, 智慧力", "學習目標": "1.依照各種情境可以使用簡單日文會話。\n2.對語言學習有興趣，養成閱讀,探討的習慣。\n3.認識日本文化，發現異國文化的美，運用於生活。\n4.學生是主體、期許學生俱有創造思考、獨立判斷、自我發展能力。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n『淺談日本語』\n1.日本語的構成。\n2.日語發音的基礎知識。\n3.教室活動---簡單日語自我介紹。\n二\n日語的音韻\n1.清音、濁音、半濁音、拗音、長音、促音。\n2.教室基本用語。\n3.日常生活用語。\n4.教室活動---日常招呼。\n5.文化介紹＿吃壽司的禮儀。\n三\n平假名(1)\n1.以日本料理的調味料記憶50音。\n2.時間讀法。\n3.教室活動-日本文化介紹\n四\n平假名(2)\n1.早口言葉。\n2.平假名讀法及書寫。\n3.教室活動---平假名賓果遊戲。\n五\n我喜歡的數字\n1.數字讀法，數字會話練習。\n2.喜歡、討厭的日文句型表現。\n3.慣用句介紹。\n4.教室活動---認識新朋友、並詢問喜歡的數字後發表。\n六\n今天是星期ㄧ\n1.星期的讀法。\n2.基本句型練習。\n3.教室活動---我的一週預定表。\n4.日文歌曲欣賞_『夢を追いかける』。『東京協奏曲』。\n七\n櫻前線\n1.移動動詞導入\n2.文化介紹＿賞櫻名所介紹\n3.教室活動-平假名遊戲\n八\n今晚月色很美\n1.量詞\n2.關於愛情的單字\n3.會話練習\n4.接受與拒絕的句型表現\n九\n今天是我的生日\n1.日期的讀法（年月日）。\n2.基本句型練習。\n3.教室活動---尋找同伴（同月生、同星座）。\n十\n形容詞\n1.形容詞的說明\n2.形容詞的否定\n3.描寫遊戲\n4.教室活動-形容詞卡片練習相反字詞\n十一\n我家有6個人\n1.家族稱謂讀法。\n2.人數讀法。\n3.存在動詞導入。\n4.教室活動---家族成員、人數調查。\n十二\n一起用餐\n1. 餐廳用餐（人數,料理名稱）\n2. 情境角色扮演（會話練習）\n十三\n這是我的手機\n1.指示詞。\n2.學習疑問句的用法。\n3.教室活動---日本摺紙。（切り絵）\n十四\n現在幾點了？\n1.時間的讀法。\n2.「從幾點到幾點」的句型學習。\n3.假日的生活形態。\n4.教室活動---生活習慣調查。\n十五\n文化體驗\n1.日本萬花筒文化\n2. 萬花筒實作\n十六\n我的數學不太行\n1.喜歡的顏色,興趣,科目\n2.喜惡,擅長,不擅長的日語表現\n3.會話練習\n4.描寫（聽到的內容）\n十七\n地下鐵的入口在哪裡？\n1.地點、方向指示詞。\n2.物品的位置及場所。\n3.教室活動---角色扮演（在車站、機場）。\n十八\n分組發表會\n1.分野：文化、食物、動漫、流行歌曲、旅行、流行、社會現象等等分野、學生五人一個分野、自行決定該分野的題目、團隊討論如何收集消化整合資料、以PPT形式發表。\n十九\n二十\n二十一\n二十二", "學習評量": "1.上課態度。（40%）\n2.口頭發表。(20%)\n3.出席率。(20%)\n4.書面報告。(20%)", "備註": "", "schedule": [{"week": "一", "topic": "『淺談日本語』", "content": "1.日本語的構成。"}, {"week": "二", "topic": "日語的音韻", "content": "1.清音、濁音、半濁音、拗音、長音、促音。"}, {"week": "三", "topic": "平假名(1)", "content": "1.以日本料理的調味料記憶50音。"}, {"week": "四", "topic": "平假名(2)", "content": "1.早口言葉。"}, {"week": "五", "topic": "我喜歡的數字", "content": "1.數字讀法，數字會話練習。"}, {"week": "六", "topic": "今天是星期ㄧ", "content": "1.星期的讀法。"}, {"week": "七", "topic": "櫻前線", "content": "1.移動動詞導入"}, {"week": "八", "topic": "今晚月色很美", "content": "1.量詞"}, {"week": "九", "topic": "今天是我的生日", "content": "1.日期的讀法（年月日）。"}, {"week": "十", "topic": "形容詞", "content": "1.形容詞的說明"}, {"week": "十一", "topic": "我家有6個人", "content": "1.家族稱謂讀法。"}, {"week": "十二", "topic": "一起用餐", "content": "1. 餐廳用餐（人數,料理名稱）"}, {"week": "十三", "topic": "這是我的手機", "content": "1.指示詞。"}, {"week": "十四", "topic": "現在幾點了？", "content": "1.時間的讀法。"}, {"week": "十五", "topic": "文化體驗", "content": "1.日本萬花筒文化"}, {"week": "十六", "topic": "我的數學不太行", "content": "1.喜歡的顏色,興趣,科目"}, {"week": "十七", "topic": "地下鐵的入口在哪裡？", "content": "1.地點、方向指示詞。"}, {"week": "十八", "topic": "分組發表會", "content": "1.分野：文化、食物、動漫、流行歌曲、旅行、流行、社會現象等等分野、學生五人一個分野、自行決定該分野的題目、團隊討論如何收集消化整合資料、以PPT形式發表。"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "悅讀Hot新聞", "name_en": "", "授課年段": "二上、二下、三上、三下", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "科技、閱讀素養、國際教育", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進,\nB溝通互動：\nB1.符號運用與溝通表達,\nC社會參與：\nC3.多元文化與國際理解,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "1.新聞議題融入聯合國永續發展目標，結合時事議題與情境主題，提升閱讀素養。\n2.六大主題：文教育樂，身心健康，社會觀察，生態環境，科技要聞，政治財經，以了解國內、國際社會之時事脈動。\n3.建立平衡的世界觀。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n教育與娛樂\n日本收藏家對柬埔寨藝術的正確行為\n二\n教育與娛樂\n奧運\n三\n教育與娛樂\n學會辨別事實與假新聞\n四\n身體與心理健康\n低頭族的興起——智慧型手機如何影響人們？\n五\n身體與心理健康\n幫助患者對抗憂鬱症\n六\n身體與心理健康\n吸菸的危害：你可能不知道的事\n七\n社會議題\n採取行動：為他人挺身而出\n八\n社會議題\n日本女性對東京醫科大學的歧視行為感到憤怒\n九\n社會議題\n恐慌性購買的心理學\n十\n生態與環境\n登革熱蔓延至尼泊爾高山地區\n十一\n生態與環境\n從舊金山到花蓮：地震能帶來什麼？\n十二\n生態與環境\n地球近60%的脊椎動物野生生物已消失\n十三\n科學與科技\n機器人同事的崛起\n十四\n科學與科技\n深入了解AR與VR\n十五\n科學與科技\n無人機的利與弊\n十六\n政治與經濟\n難民的苦難\n十七\n政治與經濟\n「冷冰冰的現金」還是王道嗎？\n十八\n政治與經濟\n台灣是否會從美中貿易戰中受益？\n十九\n二十\n二十一\n二十二", "學習評量": "1.分組討論參與度(30%)\n2.紙筆評量與分組報告完成度(30%)\n3.期末分組簡報貢獻度(40%)", "備註": "", "schedule": [{"week": "一", "topic": "教育與娛樂", "content": "日本收藏家對柬埔寨藝術的正確行為"}, {"week": "二", "topic": "教育與娛樂", "content": "奧運"}, {"week": "三", "topic": "教育與娛樂", "content": "學會辨別事實與假新聞"}, {"week": "四", "topic": "身體與心理健康", "content": "低頭族的興起——智慧型手機如何影響人們？"}, {"week": "五", "topic": "身體與心理健康", "content": "幫助患者對抗憂鬱症"}, {"week": "六", "topic": "身體與心理健康", "content": "吸菸的危害：你可能不知道的事"}, {"week": "七", "topic": "社會議題", "content": "採取行動：為他人挺身而出"}, {"week": "八", "topic": "社會議題", "content": "日本女性對東京醫科大學的歧視行為感到憤怒"}, {"week": "九", "topic": "社會議題", "content": "恐慌性購買的心理學"}, {"week": "十", "topic": "生態與環境", "content": "登革熱蔓延至尼泊爾高山地區"}, {"week": "十一", "topic": "生態與環境", "content": "從舊金山到花蓮：地震能帶來什麼？"}, {"week": "十二", "topic": "生態與環境", "content": "地球近60%的脊椎動物野生生物已消失"}, {"week": "十三", "topic": "科學與科技", "content": "機器人同事的崛起"}, {"week": "十四", "topic": "科學與科技", "content": "深入了解AR與VR"}, {"week": "十五", "topic": "科學與科技", "content": "無人機的利與弊"}, {"week": "十六", "topic": "政治與經濟", "content": "難民的苦難"}, {"week": "十七", "topic": "政治與經濟", "content": "「冷冰冰的現金」還是王道嗎？"}, {"week": "十八", "topic": "政治與經濟", "content": "台灣是否會從美中貿易戰中受益？"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "悅讀你的世界", "name_en": "Enioy the world of reading", "授課年段": "二上、二下", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "品德、生命、資訊、多元文化、閱讀素養", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進, A2.系統思考與問題解決, A3.規劃執行與創新應變,\nB溝通互動：\nB1.符號運用與溝通表達, B2.科技資訊與媒體素養,\nC社會參與：\nC2.人際關係與團隊合作, C3.多元文化與國際理解,", "學生圖像": "", "學習目標": "期望訓練學生在面對各式各樣的資訊時，能夠養成「準確檢索訊息」- 「發展統整解釋」-「形成省思評鑑」的習慣與態，進而運用這樣的能力與技巧以閱讀／越讀／悅讀週遭世界的真實樣貌與美好。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n人際訊息傳遞與檢索、表達活動\n製作個人名片-分組-(兩人一組)-向對方自我介紹。第二堂：兩兩上台介紹對方(每人1~2分鐘、錄影評分)、個人名片展示牆欣賞互評\n二\n檢索訊息活動\n訊息檢索技巧說明-文本訊息檢索活動-學習單-上傳作業\n三\n統整解釋1-連續文本練習\n檢索訊息總檢討-語意脈絡活動及講解。連續文本重組1-連續文本重組。先完成個人筆記-再討論小組學習單-繳交作業\n四\n統整解釋2-非連續文本練習\n條列分析練習-九宮格分析法練習-先完成個人筆記-再討論小組學習單-繳交作業\n五\n統整解釋3-非連續文本練習2\n非連續文本講解-非連續文本搶答活動-傑出小組長票選(下次上課前先召集小組長分好組)-旅遊計劃經驗分享-大城市旅遊計劃作業預告\n六\n統整解釋4-非連續文本練習3\n傑出小組長召集組員分組-大城市旅遊計劃製作講解-大城市旅遊計劃製作、練習、繳交作業「大城市旅遊計劃(初版)」\n七\n統整解釋5-非連續文本練習4\n完成「大城市旅遊計劃」世界咖啡座活動組內練習報告；世界咖啡座活動-講者自記錄欣賞、建議意見-上傳作業「大城市旅遊計劃(完成版)」\n八\n資訊檢索+統整解釋-閱讀測驗練習1\n「一日小旅行」作業公告。同學討論、規劃、製作計劃-閱讀測驗題目設計-繳交初版作業\n九\n資訊檢索+統整解釋-閱讀測驗練習1\n分組-閱讀測驗題目設計完成、組內練習。閱讀測驗題問設計世界咖啡座交流-繳交完成版作業\n十\n省思評鑑-1-文章內容1\n分組-比手劃腳活動；省思評鑑概說、語言誤導遊戲\n十一\n省思評鑑-2-文章內容2\n媒體識讀解說；媒體識讀作業實作-繳交作業\n十二\n省思評鑑-3-立場語言\n媒體識讀小組討論、製作小組報告-各小組上台報告觀摩-一日小旅行討論\n十三\n省思評鑑-4-辯論練習\n講解如何表達，觀看辯論比賽、奇葩說影片以觀摩；公佈辯論論題，小組討論欲選擇辯題及立場、辯論前準備-繳交「論點整理列表」作業\n十四\n省思評鑑-5-辯論練習\n進行實際辯論活動練習\n十五\n旅行實作報告製作\n旅行實作報告製作、組內報告練習\n十六\n旅行實作報告\n「一日小旅行」實作報告分享\n十七\n學期總結報告-1\n學期總結報告製作、練習\n十八\n學期總結報告-2\n學期總結報告上台分享\n十九\n二十\n二十一\n二十二", "學習評量": "1、課堂活動評量25%\n2、學習單作業評量20%\n3、簡報作業評量25%\n4、上台報告評量30%", "備註": "", "schedule": [{"week": "一", "topic": "人際訊息傳遞與檢索、表達活動", "content": "製作個人名片-分組-(兩人一組)-向對方自我介紹。第二堂：兩兩上台介紹對方(每人1~2分鐘、錄影評分)、個人名片展示牆欣賞互評"}, {"week": "二", "topic": "檢索訊息活動", "content": "訊息檢索技巧說明-文本訊息檢索活動-學習單-上傳作業"}, {"week": "三", "topic": "統整解釋1-連續文本練習", "content": "檢索訊息總檢討-語意脈絡活動及講解。連續文本重組1-連續文本重組。先完成個人筆記-再討論小組學習單-繳交作業"}, {"week": "四", "topic": "統整解釋2-非連續文本練習", "content": "條列分析練習-九宮格分析法練習-先完成個人筆記-再討論小組學習單-繳交作業"}, {"week": "五", "topic": "統整解釋3-非連續文本練習2", "content": "非連續文本講解-非連續文本搶答活動-傑出小組長票選(下次上課前先召集小組長分好組)-旅遊計劃經驗分享-大城市旅遊計劃作業預告"}, {"week": "六", "topic": "統整解釋4-非連續文本練習3", "content": "傑出小組長召集組員分組-大城市旅遊計劃製作講解-大城市旅遊計劃製作、練習、繳交作業「大城市旅遊計劃(初版)」"}, {"week": "七", "topic": "統整解釋5-非連續文本練習4", "content": "完成「大城市旅遊計劃」世界咖啡座活動組內練習報告；世界咖啡座活動-講者自記錄欣賞、建議意見-上傳作業「大城市旅遊計劃(完成版)」"}, {"week": "八", "topic": "資訊檢索+統整解釋-閱讀測驗練習1", "content": "「一日小旅行」作業公告。同學討論、規劃、製作計劃-閱讀測驗題目設計-繳交初版作業"}, {"week": "九", "topic": "資訊檢索+統整解釋-閱讀測驗練習1", "content": "分組-閱讀測驗題目設計完成、組內練習。閱讀測驗題問設計世界咖啡座交流-繳交完成版作業"}, {"week": "十", "topic": "省思評鑑-1-文章內容1", "content": "分組-比手劃腳活動；省思評鑑概說、語言誤導遊戲"}, {"week": "十一", "topic": "省思評鑑-2-文章內容2", "content": "媒體識讀解說；媒體識讀作業實作-繳交作業"}, {"week": "十二", "topic": "省思評鑑-3-立場語言", "content": "媒體識讀小組討論、製作小組報告-各小組上台報告觀摩-一日小旅行討論"}, {"week": "十三", "topic": "省思評鑑-4-辯論練習", "content": "講解如何表達，觀看辯論比賽、奇葩說影片以觀摩；公佈辯論論題，小組討論欲選擇辯題及立場、辯論前準備-繳交「論點整理列表」作業"}, {"week": "十四", "topic": "省思評鑑-5-辯論練習", "content": "進行實際辯論活動練習"}, {"week": "十五", "topic": "旅行實作報告製作", "content": "旅行實作報告製作、組內報告練習"}, {"week": "十六", "topic": "旅行實作報告", "content": "「一日小旅行」實作報告分享"}, {"week": "十七", "topic": "學期總結報告-1", "content": "學期總結報告製作、練習"}, {"week": "十八", "topic": "學期總結報告-2", "content": "學期總結報告上台分享"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "從電影看世界", "name_en": "", "授課年段": "二上、二下", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "性別平等、人權、生命、多元文化、原住民族教育", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進, A2.系統思考與問題解決, A3.規劃執行與創新應變,\nB溝通互動：\nB1.符號運用與溝通表達, B2.科技資訊與媒體素養,\nC社會參與：\nC1.道德實踐與公民意識, C2.人際關係與團隊合作, C3.多元文化與國際理解,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "A.培養學生多元能力:強調語文表達、公民素養、閱讀素養、藝文素養等多元能力\n，以作為其個人與社會溝通互動之基石。\nB.重視生命關懷教育:發展尊重他人、愛護地球、認識與包容多元文化差異，理解\n與關懷國際事務，並意識到自我的世界公民責任。\nC.運用科技與資訊能力:激發主動探究精神，培養獨立思考及團隊合作解決問題。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n課程簡介、影片1簡介\n《我的名字叫可汗》\n1.課程簡介、分組、影片簡介\n2. 能認識亞斯伯格症等身心障礙者的特性，學習同理別人並尊重差異\n二\n觀賞影片討論\n議題一: 宗教衝突與種族歧視\n1.能理解回教與印度教的教義與宗教衝突\n2.能引導從網路或圖書館找到相關宗教與族群資料做期末分組報告\n三\n觀賞影片討論\n議題二: 人權議題\n1.能瞭解911事件的相關報導並關懷現今恐攻的時事\n2.能引導從網路或圖書館找到相關資料\n四\n延伸議題:關懷臺灣新住民\n1.能發展多元認同與尊重文化差異\n2.分組討論如何與新住民或外勞和諧共處\n五\n延伸閱讀:新潮社出版\n《東南亞智慧》\n~七彩陽光下的多元文化\n能用自製PPT介紹文本內容，引導學生蒐尋相關資料做期末分組報告\n六\n實施口頭發表個人學習單\n能學習互相觀摩評分(學生互評50%)\n七\n影片2簡介與觀賞《關鍵少數》\n1.影片簡介\n2.能瞭解美蘇冷戰時期的相關歷史背景與美蘇太空競賽的史事\n八\n觀賞影片討論\n議題一: 性別平等\n1.能瞭解女權運動的相關歷史\n2.能瞭解影片諷刺人文思維趕不上科技進步的藉古嘲今\n九\n觀賞影片討論\n議題二: 種族平權\n1.能瞭解美國種族隔離政策與歧視的相關歷史背景\n2.能瞭解美國黑人民權運動的相關史事\n十\n延伸觀賞相關影片 《姊妹》\n1.影片簡介\n2.能瞭解1960年代美國種族歧視的現象\n十一\n延伸閱讀:天下出版\n《品格決勝負》 ~未來人才的祕密\n1.善良、聰明、勇氣 ，三者都是黑人教白人小孩的三句話\n2.能用自製PPT介紹文本內容，引導學生蒐尋相關資料做期末分組報告\n十二\n實施口頭發表個人學習單\n能學習互相觀摩評分(學生互評50%)\n十三\n影片3簡介與觀賞《世界是平的》\n1.影片簡介\n2.能瞭解全球化的概念與發展\n十四\n觀賞影片討論\n議題一:全球化與在地化\n1.能瞭解為何世界經濟被抹平\n2.能瞭解全球化與在地化的相容\n十五\n觀賞影片討論\n議題二:愛與關懷無國界\n能瞭解在談全球化及資本主義的唯利浪潮下消失中的核心價值~人際間的愛及關懷\n十六\n延伸閱讀:秀威出版\n《全球化議題的16堂課》\n能用自製PPT介紹文本內容，引導學生 蒐尋相關資料做期末分組報告\n十七\n實施分組上台報告之一\n1.訓練分組合作學習蒐集資料並上台發表\n2.能學習互相觀摩評分(學生互評50%)\n十八\n實施分組上台報告之二\n1.訓練分組合作學習蒐集資料並上台發表\n2.能學習互相觀摩評分(學生互評50%)\n十九\n二十\n二十一\n二十二", "學習評量": "個人學習單(30%)、分組上台PPT簡報(50%)、學習態度(20%)", "備註": "", "schedule": [{"week": "一", "topic": "課程簡介、影片1簡介", "content": "《我的名字叫可汗》"}, {"week": "二", "topic": "觀賞影片討論", "content": "議題一: 宗教衝突與種族歧視"}, {"week": "三", "topic": "觀賞影片討論", "content": "議題二: 人權議題"}, {"week": "四", "topic": "延伸議題:關懷臺灣新住民", "content": "1.能發展多元認同與尊重文化差異"}, {"week": "五", "topic": "延伸閱讀:新潮社出版", "content": "《東南亞智慧》"}, {"week": "六", "topic": "實施口頭發表個人學習單", "content": "能學習互相觀摩評分(學生互評50%)"}, {"week": "七", "topic": "影片2簡介與觀賞《關鍵少數》", "content": "1.影片簡介"}, {"week": "八", "topic": "觀賞影片討論", "content": "議題一: 性別平等"}, {"week": "九", "topic": "觀賞影片討論", "content": "議題二: 種族平權"}, {"week": "十", "topic": "延伸觀賞相關影片 《姊妹》", "content": "1.影片簡介"}, {"week": "十一", "topic": "延伸閱讀:天下出版", "content": "《品格決勝負》 ~未來人才的祕密"}, {"week": "十二", "topic": "實施口頭發表個人學習單", "content": "能學習互相觀摩評分(學生互評50%)"}, {"week": "十三", "topic": "影片3簡介與觀賞《世界是平的》", "content": "1.影片簡介"}, {"week": "十四", "topic": "觀賞影片討論", "content": "議題一:全球化與在地化"}, {"week": "十五", "topic": "觀賞影片討論", "content": "議題二:愛與關懷無國界"}, {"week": "十六", "topic": "延伸閱讀:秀威出版", "content": "《全球化議題的16堂課》"}, {"week": "十七", "topic": "實施分組上台報告之一", "content": "1.訓練分組合作學習蒐集資料並上台發表"}, {"week": "十八", "topic": "實施分組上台報告之二", "content": "1.訓練分組合作學習蒐集資料並上台發表"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "發現生活中的數學", "name_en": "", "授課年段": "二上、二下", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "生命、家庭教育、生涯規劃", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA2.系統思考與問題解決,\nB溝通互動：\nB2.科技資訊與媒體素養,\nC社會參與：\nC2.人際關係與團隊合作,", "學生圖像": "1發展力 (Development), 2-1 多元智慧, 4 卓越力 (Superiority ),", "學習目標": "利用生活上常見的問題，帶領學生認識數學如何在各行各業中，扮領不可或缺的角色。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n購屋貸款不能不知道的事\n1.認識房屋貸款負擔率\n2.了解何謂房價所得比\n二\n從儲蓄險談報酬率\n1. 了解何謂儲蓄險\n2. 儲蓄險vs.銀行定存\n三\n買房子你不能不知道的公設比\n1. 了解何謂公設比\n2. 如何計算公設比\n四\n刮刮樂彩券中的數學\n1.彩券中獎機率的計算\n2.數學期望值\n五\n遊樂園門票優惠中的數學秘密\n1. 了解身分證字號的第一碼和第二碼所代表的意義\n2. 身分證字號的檢查碼計算\n六\n從衛生紙漲價探討通貨膨帳\n1. 了解消費者物價指數\n2. 了解何謂通貨膨脹\n七\n第一次期中考\n第一次期中考\n八\n從「亞洲最胖國」問題探討完美比例\n1. 認識BMI值\n2. 認識黃金比例\n九\n從「勞工平均薪資」問題談數據分析\n1.薪資平均數\n2.認識平均數、中位數、四分位數與標準差\n十\n政治邏輯學\n認識敘述、命題與真假值\n十一\n股票投資學\n1.認識股票與股價指數\n2.了解何謂股利\n十二\n油價波動中的數學\n1.了解何謂國際指標油價\n2.認識浮動油價與浮動油價計價公式\n十三\n第二次期中考\n第二次期中考\n十四\n破解無感漏財的消費迷思\n1.了解顧客的消費心理\n2.買一送一、滿仟送百等促銷策略分析\n十五\n499之亂－從數學角度看4G資費\n1.499元資費中的秘密\n2.499元資費引發的違約金問題\n十六\n認識二刀流－大谷翔平旋風\n1.認識「打擊三圍」\n2.勝差的計算\n十七\n小球革命：籃球場上的賽局\n1.淺談賽局理論的歷史\n2.介紹約翰奈許的生平及「美麗境界」\n十八\n購車分期零利率真划算\n1.利率的計算\n2.零利率分期金額與期數\n十九\n期末考\n期末考\n二十\n二十一\n二十二", "學習評量": "1.口頭問答：20% 2.學習檔案：80%", "備註": "", "schedule": [{"week": "一", "topic": "購屋貸款不能不知道的事", "content": "1.認識房屋貸款負擔率"}, {"week": "二", "topic": "從儲蓄險談報酬率", "content": "1. 了解何謂儲蓄險"}, {"week": "三", "topic": "買房子你不能不知道的公設比", "content": "1. 了解何謂公設比"}, {"week": "四", "topic": "刮刮樂彩券中的數學", "content": "1.彩券中獎機率的計算"}, {"week": "五", "topic": "遊樂園門票優惠中的數學秘密", "content": "1. 了解身分證字號的第一碼和第二碼所代表的意義"}, {"week": "六", "topic": "從衛生紙漲價探討通貨膨帳", "content": "1. 了解消費者物價指數"}, {"week": "七", "topic": "第一次期中考", "content": "第一次期中考"}, {"week": "八", "topic": "從「亞洲最胖國」問題探討完美比例", "content": "1. 認識BMI值"}, {"week": "九", "topic": "從「勞工平均薪資」問題談數據分析", "content": "1.薪資平均數"}, {"week": "十", "topic": "政治邏輯學", "content": "認識敘述、命題與真假值"}, {"week": "十一", "topic": "股票投資學", "content": "1.認識股票與股價指數"}, {"week": "十二", "topic": "油價波動中的數學", "content": "1.了解何謂國際指標油價"}, {"week": "十三", "topic": "第二次期中考", "content": "第二次期中考"}, {"week": "十四", "topic": "破解無感漏財的消費迷思", "content": "1.了解顧客的消費心理"}, {"week": "十五", "topic": "499之亂－從數學角度看4G資費", "content": "1.499元資費中的秘密"}, {"week": "十六", "topic": "認識二刀流－大谷翔平旋風", "content": "1.認識「打擊三圍」"}, {"week": "十七", "topic": "小球革命：籃球場上的賽局", "content": "1.淺談賽局理論的歷史"}, {"week": "十八", "topic": "購車分期零利率真划算", "content": "1.利率的計算"}, {"week": "十九", "topic": "期末考", "content": "期末考"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "程式設計", "name_en": "Computer Programming", "授課年段": "二上、二下", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "資訊", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA2.系統思考與問題解決,\nB溝通互動：\nB2.科技資訊與媒體素養,\nC社會參與：\nC2.人際關係與團隊合作,", "學生圖像": "", "學習目標": "透過C#語言的教學，讓學生學習物件導向程式設計與視窗開發，期望學生可以培養以程式思惟邏輯解決生活中的問題。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n虛擬碼寫作與流程圖製作\n虛擬碼寫作與流程圖製作\n二\nCH01 數學計算程式\n1.1 開啟Visual studio Community 2015建立專案\n1.2 主要工作環境\n1.3 除錯\n三\nCH01 數學計算程式\n1.4 四則運算\n1.5 使用數學函式庫\n1.6 用迴圈作連加法\n四\nCH02 我的瀏覽器\n2.1 WebBrower物件與首頁\n2.2 網址輸入與翻頁\n2.3 用程式動態調整版面\n五\nCH02 我的瀏覽器\n2.4 建置與發行\n2.5 建立你的品牌\n六\nCH03 音階與語音的合成\n3.1 加入音效資源檔\n3.2 製作鍵盤\n3.3 音階播放的程式\n七\nCH03 音階與語音的合成\n3.4 數字語音\n3.5 建立鍵盤事件副程式\n八\nCH04 我的記事本\n4.1 建立編輯區與功能表\n4.2 開啟檔案\n4.3 儲存檔案與另存新檔\n九\nCH04 我的記事本\n4.4 編輯功能表\n4.5 編輯功能\n4.6 拖曳視窗\n4.7 字形與顏色的選擇\n十\nCH05 我的小算盤\n5.1事件副程式的運作機制\n5.2建立程式介面\n5.3建立0-9數字的按鍵輸入\n5.4建立0-9數字的鍵盤輸入\n十一\nCH05 我的小算盤\n5.5加入小數點與改變正負號\n5.6輸入運算元\n5.7執行計算\n5.8加入清除與倒退鈕\n十二\nCH06 秀圖軟體\n6.1建立功能表與狀態列\n6.2建立影像顯示框\n6.3讀入與顯示影像\n6.4自訂副程式\n十三\nCH06 秀圖軟體\n6.5位置與長寬屬性\n6.6縮放與旋轉影像\n十四\nCH06 秀圖軟體\n6.7投影片播放\n6.8狀態列顯示檔案資訊\n十五\n專題設計\n專題流程圖設計\n十六\n專題設計\n專題程式設計\n十七\n專題設計\n專題程式設計\n十八\n成果發表\n成果發表\n十九\n二十\n二十一\n二十二", "學習評量": "1. 學習作業：完成各節作業60%(評量標準：未交：0分，已交程式未完成或不完整：60-79分，完成程式：80-89分，完成程式並有適切註解或增加延伸功能：90-100分)\n2. 專題設計：完成作品40%(評量標準：未交：0分，已交作品，但作品不完整：60-79分，完成作品：80-89分，作品功能完善並富有創意：90-100分)\n3. 於google classroom平台作業區繳交", "備註": "", "schedule": [{"week": "一", "topic": "虛擬碼寫作與流程圖製作", "content": "虛擬碼寫作與流程圖製作"}, {"week": "二", "topic": "CH01 數學計算程式", "content": "1.1 開啟Visual studio Community 2015建立專案"}, {"week": "三", "topic": "CH01 數學計算程式", "content": "1.4 四則運算"}, {"week": "四", "topic": "CH02 我的瀏覽器", "content": "2.1 WebBrower物件與首頁"}, {"week": "五", "topic": "CH02 我的瀏覽器", "content": "2.4 建置與發行"}, {"week": "六", "topic": "CH03 音階與語音的合成", "content": "3.1 加入音效資源檔"}, {"week": "七", "topic": "CH03 音階與語音的合成", "content": "3.4 數字語音"}, {"week": "八", "topic": "CH04 我的記事本", "content": "4.1 建立編輯區與功能表"}, {"week": "九", "topic": "CH04 我的記事本", "content": "4.4 編輯功能表"}, {"week": "十", "topic": "CH05 我的小算盤", "content": "5.1事件副程式的運作機制"}, {"week": "十一", "topic": "CH05 我的小算盤", "content": "5.5加入小數點與改變正負號"}, {"week": "十二", "topic": "CH06 秀圖軟體", "content": "6.1建立功能表與狀態列"}, {"week": "十三", "topic": "CH06 秀圖軟體", "content": "6.5位置與長寬屬性"}, {"week": "十四", "topic": "CH06 秀圖軟體", "content": "6.7投影片播放"}, {"week": "十五", "topic": "專題設計", "content": "專題流程圖設計"}, {"week": "十六", "topic": "專題設計", "content": "專題程式設計"}, {"week": "十七", "topic": "專題設計", "content": "專題程式設計"}, {"week": "十八", "topic": "成果發表", "content": "成果發表"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "歌詞、舞蹈與文學", "name_en": "Lyrics, dance and  literature", "授課年段": "二上、二下", "學分總數": "2", "課程屬性": "跨領域/科目統整", "議題融入": "多元文化, 閱讀素養", "師資來源": "校內跨科協同", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進\nB溝通互動：\nB3.藝術涵養與美感素養\nC社會參與：\nC3.多元文化與國際理解", "學生圖像": "適性探索", "學習目標": "學生能透過歌詞理解文本的分析及手法，往後能有條理獨立賞析各種文本，且能藉由舞蹈及肢體感受音樂及情感的多元表達方式。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n課程介紹\n課程介紹\n二\n文本分析\n主題與結構\n三\n文本分析\n視角與情節\n四\n文本分析\n修辭與顏色\n五\n歌詞主題\n親情\n六\n歌詞主題\n愛情\n七\n歌詞主題\n社會議題\n八\n歌詞主題\n人生雜感\n九\n歌詞主題\n慰藉創傷\n十\n歌詞賞析測驗\n學生選取一首流行樂進行文本賞析\n十一\n舞蹈與文學\n影片欣賞 雲門舞集《關於島嶼》\n十二\n舞蹈實作\n節拍、美感、結構\n十三\n舞蹈實作\n力量、連結、形式\n十四\n舞蹈與文學\n高行健《靈山》 壞鞋子舞蹈劇場《彩虹的盡頭》\n十五\n舞蹈實作\n接觸即興\n十六\n舞蹈評論\n非虛構寫作的實與虛\n十七\n期末呈現\n流行樂與舞蹈\n十八\n期末呈現\n流行樂與舞蹈\n十九\n二十\n二十一\n二十二", "學習評量": "筆試30%\n分組及個人學習單30%\n期末呈現30%\n出席及互評10%", "備註": "", "schedule": [{"week": "一", "topic": "課程介紹", "content": "課程介紹"}, {"week": "二", "topic": "文本分析", "content": "主題與結構"}, {"week": "三", "topic": "文本分析", "content": "視角與情節"}, {"week": "四", "topic": "文本分析", "content": "修辭與顏色"}, {"week": "五", "topic": "歌詞主題", "content": "親情"}, {"week": "六", "topic": "歌詞主題", "content": "愛情"}, {"week": "七", "topic": "歌詞主題", "content": "社會議題"}, {"week": "八", "topic": "歌詞主題", "content": "人生雜感"}, {"week": "九", "topic": "歌詞主題", "content": "慰藉創傷"}, {"week": "十", "topic": "歌詞賞析測驗", "content": "學生選取一首流行樂進行文本賞析"}, {"week": "十一", "topic": "舞蹈與文學", "content": "影片欣賞 雲門舞集《關於島嶼》"}, {"week": "十二", "topic": "舞蹈實作", "content": "節拍、美感、結構"}, {"week": "十三", "topic": "舞蹈實作", "content": "力量、連結、形式"}, {"week": "十四", "topic": "舞蹈與文學", "content": "高行健《靈山》 壞鞋子舞蹈劇場《彩虹的盡頭》"}, {"week": "十五", "topic": "舞蹈實作", "content": "接觸即興"}, {"week": "十六", "topic": "舞蹈評論", "content": "非虛構寫作的實與虛"}, {"week": "十七", "topic": "期末呈現", "content": "流行樂與舞蹈"}, {"week": "十八", "topic": "期末呈現", "content": "流行樂與舞蹈"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "酸鹼的世界", "name_en": "", "授課年段": "二上、二下", "學分總數": "2", "課程屬性": "實作(實驗)及探索體驗", "議題融入": "環境", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進, A2.系統思考與問題解決,\nB溝通互動：\nC社會參與：\nC2.人際關係與團隊合作,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "1.使學生瞭解基本化學原理，並加強實際應用的知識。\n2.利用分組報告，使學生發現生活中的化學，培養學生正確化學觀念，結合相關\n科學知識，以具備分析實際問題的能力。\n3.明瞭化學與人生的關係，利用化學知能改善環境。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n分組\n分組、實驗室安全守則\n二\n酸鹼滴定概論\n酸鹼滴定概論\n三\npH計介紹與使用\npH計介紹與使用\n四\n實驗1\n講解實驗1\n五\n實驗1\n酸、鹼標準液的配置與標定\n六\n實驗1\n酸、鹼標準液的配置與標定\n七\n實驗2\n講解實驗2\n八\n實驗2\n醋酸濃度的測定\n九\n實驗3\n講解實驗3\n十\n實驗3\n液鹼中總鹼量之測定\n十一\n實驗報告\n實驗報告撰寫與分析\n十二\n小組報告\n小組報告與討論\n十三\n小組報告\n小組報告與討論\n十四\n小組報告\n小組報告與討論\n十五\n小組報告\n小組報告與討論\n十六\n小組報告\n小組報告與討論\n十七\n小組報告\n小組報告與討論\n十八\n小組報告\n小組報告與討論\n十九\n二十\n二十一\n二十二", "學習評量": "實驗報告(40%)、小組報告(40%)、實驗態度(20%)", "備註": "自編講義：視小組報告情況，若有多餘時間會安排學生再操作實驗2、實驗3\n小組報告說明：\n(1)小組報告每組人數2-3人，視修課人數而定，正常約20-25人左右。\n(2)小組報告主題以生活中的化學為主，也可選擇期刊(科學人、牛頓或其他)中的主題。學生選定主題後需先與任課老師討論，任課老師同意報告內容後，才能進行資料收集與製作ppt。例如生活中的清潔劑成分分析、泡麵中的營養成分與熱量分析、書本味道的分析、生活中的指示劑等。", "schedule": [{"week": "一", "topic": "分組", "content": "分組、實驗室安全守則"}, {"week": "二", "topic": "酸鹼滴定概論", "content": "酸鹼滴定概論"}, {"week": "三", "topic": "pH計介紹與使用", "content": "pH計介紹與使用"}, {"week": "四", "topic": "實驗1", "content": "講解實驗1"}, {"week": "五", "topic": "實驗1", "content": "酸、鹼標準液的配置與標定"}, {"week": "六", "topic": "實驗1", "content": "酸、鹼標準液的配置與標定"}, {"week": "七", "topic": "實驗2", "content": "講解實驗2"}, {"week": "八", "topic": "實驗2", "content": "醋酸濃度的測定"}, {"week": "九", "topic": "實驗3", "content": "講解實驗3"}, {"week": "十", "topic": "實驗3", "content": "液鹼中總鹼量之測定"}, {"week": "十一", "topic": "實驗報告", "content": "實驗報告撰寫與分析"}, {"week": "十二", "topic": "小組報告", "content": "小組報告與討論"}, {"week": "十三", "topic": "小組報告", "content": "小組報告與討論"}, {"week": "十四", "topic": "小組報告", "content": "小組報告與討論"}, {"week": "十五", "topic": "小組報告", "content": "小組報告與討論"}, {"week": "十六", "topic": "小組報告", "content": "小組報告與討論"}, {"week": "十七", "topic": "小組報告", "content": "小組報告與討論"}, {"week": "十八", "topic": "小組報告", "content": "小組報告與討論"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "影音新聞實作", "name_en": "Video News practice", "授課年段": "二上、二下", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "資訊, 閱讀素養", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA3.規劃執行與創新應變\nB溝通互動：\nB2.科技資訊與媒體素養, B3.藝術涵養與美感素養\nC社會參與：\nC2.人際關係與團隊合作", "學生圖像": "智慧力, 卓越力", "學習目標": "學生能具備流暢的口語與文字表達能力，並了解攝影基礎概念，以聲音配合畫面敘述一則完整的新聞事件。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n課程介紹\n課程進行方式說明、分組\n牛刀小試：自我介紹1分半不NG\n二\n文稿訓練：認識SOT稿\n影音新聞常見術語講解(SOT、稿頭、乾稿、BS、OS、NS、Stand、Live、D-Live、Bite……)\n影音新聞範例觀賞\n影音新聞文稿結構分析及統整\n三\n文稿訓練：稿頭撰寫練習\n將既有SOT稿、文字新聞濃縮為20秒內的稿頭\n稿頭播報練習\n四\n文稿訓練：SOT稿撰寫\n將既有文字新聞改寫為SOT稿\n五\n聲情訓練：口齒練習\n如何讓文稿聽起來有重點？(斷句、音量區別練習)\n繞口令練習(哪些音或詞要少用為妙？)\n過音練習\n六\n聲情訓練：聲音表情\n新聞題材與聲情的配合：以災難新聞、娛樂新聞、政治新聞、生活新聞為例\n七\n聲情訓練：Stand練習\n儀態提點\nStand播報練習(對人、對機器)\n八\n期中驗收與互評\n各組輪流上台播報一則新聞，教師與其餘各組就其文稿內容、播報儀態評分\n九\n業師演講\n業師演講\n十\n攝影訓練：攝影基礎\n攝影常見術語與參數說明(景深、光圈、快門、ISO、色溫/白平衡、近景、中景、遠景、特寫)實作練習\n十一\n攝影訓練：構圖基礎\n井字構圖、視覺空間、仰角、俯角、空鏡頭、過肩\n實作練習\n十二\n攝影訓練：運鏡基礎\nDolly、Zoom、Pan、Tilt\n實作練習\n十三\n突發新聞體驗：畫面先行\n練習在僅有畫面的情況下完成至少30秒的新聞播報\n十四\n突發新聞體驗：文字先行\n練習在沒有畫面，僅有關鍵詞的情況下完成至少30秒的新聞播報\n十五\n期末作品準備\n小組討論並製作期末的影音新聞(每人皆須播報，亦即一組有幾人就要有幾支影音新聞)\n十六\n期末作品準備\n小組討論並製作期末的影音新聞(每人皆須播報，亦即一組有幾人就要有幾支影音新聞)\n十七\n期末展演與互評\n期末展演與互評\n十八\n期末展演與互評\n期末展演與互評、學期回顧與反思自評\n十九\n二十\n二十一\n二十二", "學習評量": "SOT改寫作業 10%\nStand 作業 10%\n期中驗收15%\n影音新聞播報練習錄影檔 25%(一學期繳交5次)\n期末影音新聞成品 25%(播報10% 文稿10% 攝影5%)\n期中互評 5%\n期末互評5%\n期末自評 5%", "備註": "", "schedule": [{"week": "一", "topic": "課程介紹", "content": "課程進行方式說明、分組"}, {"week": "二", "topic": "文稿訓練：認識SOT稿", "content": "影音新聞常見術語講解(SOT、稿頭、乾稿、BS、OS、NS、Stand、Live、D-Live、Bite……)"}, {"week": "三", "topic": "文稿訓練：稿頭撰寫練習", "content": "將既有SOT稿、文字新聞濃縮為20秒內的稿頭"}, {"week": "四", "topic": "文稿訓練：SOT稿撰寫", "content": "將既有文字新聞改寫為SOT稿"}, {"week": "五", "topic": "聲情訓練：口齒練習", "content": "如何讓文稿聽起來有重點？(斷句、音量區別練習)"}, {"week": "六", "topic": "聲情訓練：聲音表情", "content": "新聞題材與聲情的配合：以災難新聞、娛樂新聞、政治新聞、生活新聞為例"}, {"week": "七", "topic": "聲情訓練：Stand練習", "content": "儀態提點"}, {"week": "八", "topic": "期中驗收與互評", "content": "各組輪流上台播報一則新聞，教師與其餘各組就其文稿內容、播報儀態評分"}, {"week": "九", "topic": "業師演講", "content": "業師演講"}, {"week": "十", "topic": "攝影訓練：攝影基礎", "content": "攝影常見術語與參數說明(景深、光圈、快門、ISO、色溫/白平衡、近景、中景、遠景、特寫)實作練習"}, {"week": "十一", "topic": "攝影訓練：構圖基礎", "content": "井字構圖、視覺空間、仰角、俯角、空鏡頭、過肩"}, {"week": "十二", "topic": "攝影訓練：運鏡基礎", "content": "Dolly、Zoom、Pan、Tilt"}, {"week": "十三", "topic": "突發新聞體驗：畫面先行", "content": "練習在僅有畫面的情況下完成至少30秒的新聞播報"}, {"week": "十四", "topic": "突發新聞體驗：文字先行", "content": "練習在沒有畫面，僅有關鍵詞的情況下完成至少30秒的新聞播報"}, {"week": "十五", "topic": "期末作品準備", "content": "小組討論並製作期末的影音新聞(每人皆須播報，亦即一組有幾人就要有幾支影音新聞)"}, {"week": "十六", "topic": "期末作品準備", "content": "小組討論並製作期末的影音新聞(每人皆須播報，亦即一組有幾人就要有幾支影音新聞)"}, {"week": "十七", "topic": "期末展演與互評", "content": "期末展演與互評"}, {"week": "十八", "topic": "期末展演與互評", "content": "期末展演與互評、學期回顧與反思自評"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "數學與電腦繪圖", "name_en": "", "授課年段": "二上、二下", "學分總數": "2", "課程屬性": "實作(實驗)及探索體驗", "議題融入": "科技、資訊", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進,\nB溝通互動：\nB2.科技資訊與媒體素養,\nC社會參與：\nC2.人際關係與團隊合作,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "利用電腦繪圖幫助學生更了解平面坐標系上的數學問題。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n認識繪圖軟體GGB &基本簡單圖形\n1.認識數學繪圖軟體GGB\n2.了解GGB可以做什麼\n3.認識GGB的繪圖工具\n4.利用繪圖工具作簡單的圖形\n5.了解上傳作業的方法及評分方式\n二\n三角形的五心\n1.利用GGB的繪圖工具，找出三角形的五心\n2.利用不同顏色讓圖形更容易辨識\n三\n對稱點 &多項數函數圖形\n1.利用GGB的繪圖工具，找出平面上一定點在x軸及y軸上的垂足\n2.利用GGB的繪圖工具，找出平面上一定點對x軸、y軸及原點的對稱點\n3.利用GGB的繪圖工具，找出平面上一定點對直線\ny =x及直線y =x的對稱點\n4.利用程式輸入，畫出多項數函數的圖形\n5.利用多項函數的圖形，判斷多項方程式的解\n四\n圖形平移 &指數函數圖形、對數函數圖形\n1.利用程式輸入，畫出多項數函數的圖形\n2.利用多項函數的圖形，介紹圖形平移\n3.利用程式輸入，畫出指、對數函數的圖形\n4.利用指、對數函數的圖形判斷指、對數方程式的解\n五\n直線與圓 & 切線\n1.利用程式輸入，畫出直線與圓的圖形\n2.利用圓心與直線的距離，判斷直線與圓的相交狀況\n3.給定圓上一點，做出過此點的切線\n4.給定圓外一點，做出過此點的切線\n六\n二元一次不等式 & 二元一次聯立不等式\n1.作出二元一次不等式的解\n2.作出二元一次聯立不等式的解\n七\n線性規劃 &三角函數圖形\n1.利用變動值作出平移直線\n2.利用平移直線判斷可行解區域中目標函數的極值\n3.利用程式輸入，畫出y=sinx、y=cosx及y=tanx的函數圖形\n八\n圖形伸縮 &實數解\n1.利用程式輸入，畫出y=sin2x、y=2sinx、y=cos2x、y=2cosx的函數圖形\n2.利用函數圖形，判斷方程式x=sinx實數解的個數\n九\n實數解 &正餘弦疊合\n1.利用函數圖形，判斷方程式3x=sinx實數解的個數\n2.利用程式輸入，畫出y=sinx +cosx的圖形\n3.判斷函數y=4sin(x +  )的極值\n十\n平面向量\n1.利用GGB的繪圖工具，畫出平面向量\n2.利用GGB的繪圖工具，畫出平面向量的和向量，向量差\n十一\n正射影\n利用GGB的繪圖工具，求出一向量在另一向量上的正射影\n十二\n平行四邊形\n利用GGB的繪圖工具，求出兩向量為兩鄰邊的平行四邊形面積\n十三\n空間中的點\n1.利用GGB的繪圖工具，找到空間中點的位置\n2.利用GGB的繪圖工具，求出兩點的距離\n十四\n垂足\n利用GGB的繪圖工具，求出一定點在坐標軸與坐標平可面上的垂足\n十五\n空間向量\n利用GGB的繪圖工具，畫出空間向量的和向量，向量差\n十六\n正射影\n利用GGB的繪圖工具，求出一向量在另一向量上的正射影\n十七\n空間中三角形的面積\n利用GGB的繪圖工具，求出空間中三角形的面積\n十八\n平行六面體\n1.利用GGB的繪圖工具，畫出空間中以三向量為三個鄰邊所圍成的平行六面體圖形\n2.利用圖形，求出空間中以三向量為三個鄰邊所圍成的平行六面體體積\n十九\n二十\n二十一\n二十二", "學習評量": "1.口頭問答：20% 2.學習檔案：80%", "備註": "", "schedule": [{"week": "一", "topic": "認識繪圖軟體GGB &基本簡單圖形", "content": "1.認識數學繪圖軟體GGB"}, {"week": "二", "topic": "三角形的五心", "content": "1.利用GGB的繪圖工具，找出三角形的五心"}, {"week": "三", "topic": "對稱點 &多項數函數圖形", "content": "1.利用GGB的繪圖工具，找出平面上一定點在x軸及y軸上的垂足"}, {"week": "四", "topic": "圖形平移 &指數函數圖形、對數函數圖形", "content": "1.利用程式輸入，畫出多項數函數的圖形"}, {"week": "五", "topic": "直線與圓 & 切線", "content": "1.利用程式輸入，畫出直線與圓的圖形"}, {"week": "六", "topic": "二元一次不等式 & 二元一次聯立不等式", "content": "1.作出二元一次不等式的解"}, {"week": "七", "topic": "線性規劃 &三角函數圖形", "content": "1.利用變動值作出平移直線"}, {"week": "八", "topic": "圖形伸縮 &實數解", "content": "1.利用程式輸入，畫出y=sin2x、y=2sinx、y=cos2x、y=2cosx的函數圖形"}, {"week": "九", "topic": "實數解 &正餘弦疊合", "content": "1.利用函數圖形，判斷方程式3x=sinx實數解的個數"}, {"week": "十", "topic": "平面向量", "content": "1.利用GGB的繪圖工具，畫出平面向量"}, {"week": "十一", "topic": "正射影", "content": "利用GGB的繪圖工具，求出一向量在另一向量上的正射影"}, {"week": "十二", "topic": "平行四邊形", "content": "利用GGB的繪圖工具，求出兩向量為兩鄰邊的平行四邊形面積"}, {"week": "十三", "topic": "空間中的點", "content": "1.利用GGB的繪圖工具，找到空間中點的位置"}, {"week": "十四", "topic": "垂足", "content": "利用GGB的繪圖工具，求出一定點在坐標軸與坐標平可面上的垂足"}, {"week": "十五", "topic": "空間向量", "content": "利用GGB的繪圖工具，畫出空間向量的和向量，向量差"}, {"week": "十六", "topic": "正射影", "content": "利用GGB的繪圖工具，求出一向量在另一向量上的正射影"}, {"week": "十七", "topic": "空間中三角形的面積", "content": "利用GGB的繪圖工具，求出空間中三角形的面積"}, {"week": "十八", "topic": "平行六面體", "content": "1.利用GGB的繪圖工具，畫出空間中以三向量為三個鄰邊所圍成的平行六面體圖形"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "趣讀英文", "name_en": "Learning with English Picture Books", "授課年段": "二上、二下", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "閱讀素養、國際教育", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進,\nB溝通互動：\nB1.符號運用與溝通表達,\nC社會參與：\nC3.多元文化與國際理解,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "近程目標\n(1)利用不同領域及主題的英文繪本，提升學生學習英文動機。\n(2)利用英文繪本中重複的句型及韻字，增進學生開口說的能力。\n(3)利用英文繪本中的內容，提升學生書寫句型的能力。\n中程目標\n(1)透過文本閱讀與分析，了解故事的結構及思考文本所傳達的概念。\n(2)透過團隊合作的方式讓同學練習書寫英文，降低學習差距，營造正向的學習英文環境。\n遠程目標\n(1) 藉由閱讀繪本提升學生閱讀思考的能力，能夠探討文本背後的各項議題進而培養對社會之關懷。\n(2)藉由繪本創作及作品發表，培養學生獨立思考、溝通合作和解決問題的能力。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\nIntroduction\n課程說明與分組\n二\nIntroduction\n繪本重點說明\n三\nThe Napping House\n介紹繪本，閱讀與大聲朗誦\n四\nThe Napping House\n教師引導分組討論活動\n五\nThe Napping House\n各組分享討論活動成果\n六\nA Book of Feelings\n介紹繪本，學生練習大聲朗誦\n七\n第一次段考\n第一次段考\n八\nA Book of Feelings\n教師引導分組討論活動\n九\nA Book of Feelings\n各組分享討論活動成果\n十\nWonder\n小說簡介\n十一\nWonder\n教師引導分組討論活動\n十二\nWonder\n教師引導分組討論活動\n十三\nWonder\n教師引導分組討論活動\n十四\n第二次段考\n第二次段考\n十五\nWonder\n各組分享討論活動成果\n十六\n創作繪本\n故事發想\n教師引導各組將前十周所學的繪本故事重點活用在自己的繪本創作中\n十七\n創作繪本\n繪本故事潤飾\n教師將上週各組所完成的繪本故事大綱發還，並指導潤飾繪本故事\n十八\n創作繪本\n繪本創作\n教師指導學生製作繪本故事分鏡表\n十九\n創作繪本\n成果發表\n各組以 “Show and Tell” 的方式進行成果發表\n二十\n創作繪本\n成果發表\n各組以 “Show and Tell” 的方式進行成果發表\n二十一\n期末考\n期末考\n二十二", "學習評量": "(1)學習檔案評量:討論、講述、心得與研究報告: 50%\n(2)實作評量:小組繪本創作: 50%", "備註": "本課程使用之英文圖書皆為繪本名稱", "schedule": [{"week": "一", "topic": "Introduction", "content": "課程說明與分組"}, {"week": "二", "topic": "Introduction", "content": "繪本重點說明"}, {"week": "三", "topic": "The Napping House", "content": "介紹繪本，閱讀與大聲朗誦"}, {"week": "四", "topic": "The Napping House", "content": "教師引導分組討論活動"}, {"week": "五", "topic": "The Napping House", "content": "各組分享討論活動成果"}, {"week": "六", "topic": "A Book of Feelings", "content": "介紹繪本，學生練習大聲朗誦"}, {"week": "七", "topic": "第一次段考", "content": "第一次段考"}, {"week": "八", "topic": "A Book of Feelings", "content": "教師引導分組討論活動"}, {"week": "九", "topic": "A Book of Feelings", "content": "各組分享討論活動成果"}, {"week": "十", "topic": "Wonder", "content": "小說簡介"}, {"week": "十一", "topic": "Wonder", "content": "教師引導分組討論活動"}, {"week": "十二", "topic": "Wonder", "content": "教師引導分組討論活動"}, {"week": "十三", "topic": "Wonder", "content": "教師引導分組討論活動"}, {"week": "十四", "topic": "第二次段考", "content": "第二次段考"}, {"week": "十五", "topic": "Wonder", "content": "各組分享討論活動成果"}, {"week": "十六", "topic": "創作繪本", "content": "故事發想"}, {"week": "十七", "topic": "創作繪本", "content": "繪本故事潤飾"}, {"week": "十八", "topic": "創作繪本", "content": "繪本創作"}, {"week": "十九", "topic": "創作繪本", "content": "成果發表"}, {"week": "二十", "topic": "創作繪本", "content": "成果發表"}, {"week": "二十一", "topic": "期末考", "content": "期末考"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "餐桌上的人類學家", "name_en": "The Anthropologist on The Table", "授課年段": "二上、二下", "學分總數": "2", "課程屬性": "跨領域/科目統整", "議題融入": "性別平等、人權、環境、海洋、多元文化", "師資來源": "校內跨科協同", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進,\nB溝通互動：\nB1.符號運用與溝通表達,\nC社會參與：\nC2.人際關係與團隊合作, C3.多元文化與國際理解,", "學生圖像": "", "學習目標": "烏俄戰爭與氣候變遷引發全球糧價與蛋價上漲，在各國都引發政經動蕩與社會紛擾，我們期待能由全球觀點，帶領學生討論食之日常。本課程將從民生必需的「食物」與「糧食」切入，透過史地跨科協同的方式，認識各國飲食文化，並討論從產地到餐桌的歷程，思考食物背後的全球化、與SDGs當中的性別、人權、環境、海洋等重大議題。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n課程介紹\n1.\t介紹課程內容、作業與評分標準\n2.\t播放紀實節目：《我在市場待了一整天》\n3.\t閱讀相關文章與報導，進行議題討論為課程暖身\n二\n生存的依靠：小麥與麵包\n1.\t小麥栽培的歷史\n2.\t手提箱農夫的日常\n三\n生存的依靠：小麥與麵包\n1.\t麵包穀物發酵的歷史\n2.\t兩河流域的麵包DIY\n四\n生存的依靠：小麥與麵包\n1.\t製糖全球化前的甜味來源\n2.\t從歐式麵包到台式麵包\n五\n蛋糕vs麵包\n1.\t歐洲的蛋糕文化\n2.\t跟著帆船啟航的葡式蛋糕\n六\n長崎蛋糕的東亞史\n1.\t從南蠻菓子到國民蛋糕\n2.\t隱身南蠻料理中的葡萄牙文化\n七\n環地中海的綠金：橄欖油\n1.\t食用油與橄欖油的歷史\n2.\t認識橄欖與橄欖油\n八\n環地中海的綠金：橄欖油\n1.\t品嚐不同產區橄欖油\n2.\t敘利亞的早餐：labneh\n九\n環地中海的綠金：橄欖油\n1.\t橄欖油的產業應用：從阿勒坡到馬賽\n2.\t同場加映：棕櫚油\n十\n期中發表\n期中發表\n十一\n香氣的世界\n1.\t嗅覺的魔法與社會性\n2.\t介紹「嗅覺產業」\n十二\n世界的香氣文化\n1.\t宗教之香與品味之香\n2.\t乳香與沉香\n十三\n食物中的香氣\n1.\t介紹東西方的食用香料\n2.\t誰是狗鼻子，香料連連看\n十四\n品飲香氣\n1.\t何謂「五香」\n2.\t東西方的香料飲品DIY\n十五\n私密的香氣領域\n1.\t香水是什麼?\n2.\t從香奈兒5號到氣味博物館\n十六\n自製生活香\n1.\t調香師的入門訓練\n十七\n世界香料餐盤：咖哩入門\n1.\t介紹咖哩的發展與傳播史\n十八\n成果發表\n學期課程回顧與成果發表\n十九\n二十\n二十一\n二十二", "學習評量": "1. 出席率：10%\n（學生每缺曠課一週，扣2分；上課遲到，累積每3次，扣1分）\n2. 個人作業：30%\n（學習單）\n3. 小組作業：30%\n（課堂討論與學習單等分組活動作業）\n4. 實作成績：30%\n（實作課程時的投入度、清潔、分工、材料管理、成果展示與回饋）\n方式以小組合作、簡報展示為主，輔以書面報告。", "備註": "", "schedule": [{"week": "一", "topic": "課程介紹", "content": "1.\t介紹課程內容、作業與評分標準"}, {"week": "二", "topic": "生存的依靠：小麥與麵包", "content": "1.\t小麥栽培的歷史"}, {"week": "三", "topic": "生存的依靠：小麥與麵包", "content": "1.\t麵包穀物發酵的歷史"}, {"week": "四", "topic": "生存的依靠：小麥與麵包", "content": "1.\t製糖全球化前的甜味來源"}, {"week": "五", "topic": "蛋糕vs麵包", "content": "1.\t歐洲的蛋糕文化"}, {"week": "六", "topic": "長崎蛋糕的東亞史", "content": "1.\t從南蠻菓子到國民蛋糕"}, {"week": "七", "topic": "環地中海的綠金：橄欖油", "content": "1.\t食用油與橄欖油的歷史"}, {"week": "八", "topic": "環地中海的綠金：橄欖油", "content": "1.\t品嚐不同產區橄欖油"}, {"week": "九", "topic": "環地中海的綠金：橄欖油", "content": "1.\t橄欖油的產業應用：從阿勒坡到馬賽"}, {"week": "十", "topic": "期中發表", "content": "期中發表"}, {"week": "十一", "topic": "香氣的世界", "content": "1.\t嗅覺的魔法與社會性"}, {"week": "十二", "topic": "世界的香氣文化", "content": "1.\t宗教之香與品味之香"}, {"week": "十三", "topic": "食物中的香氣", "content": "1.\t介紹東西方的食用香料"}, {"week": "十四", "topic": "品飲香氣", "content": "1.\t何謂「五香」"}, {"week": "十五", "topic": "私密的香氣領域", "content": "1.\t香水是什麼?"}, {"week": "十六", "topic": "自製生活香", "content": "1.\t調香師的入門訓練"}, {"week": "十七", "topic": "世界香料餐盤：咖哩入門", "content": "1.\t介紹咖哩的發展與傳播史"}, {"week": "十八", "topic": "成果發表", "content": "學期課程回顧與成果發表"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "進階日本語", "name_en": "Advanced Japanese", "授課年段": "二下", "學分總數": "2", "課程屬性": "通識性課程", "議題融入": "品德, 多元文化, 閱讀素養, 國際教育", "師資來源": "外聘(大學)", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進, A2.系統思考與問題解決, A3.規劃執行與創新應變\nB溝通互動：\nB1.符號運用與溝通表達, B3.藝術涵養與美感素養\nC社會參與：\nC3.多元文化與國際理解", "學生圖像": "發展力, 智慧力", "學習目標": "1.依照各種情境可以使用簡單日文會話。\n2.對語言學習有興趣，養成閱讀,探討的習慣。\n3.認識日本文化，發現異國文化的美，運用於生活。\n4.學生是主體、期許學生俱有創造思考、獨立判斷、自我發展能力。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n這不是我的課本\n1.指示詞（これ、それ、あれ）。\n2.否定型導入。\n3.慣用語介紹１。\n4.教室活動---失物拾尋。\n二\n訪談遊戲\n1.疑問詞導入（どこ、何、いつ、どんな）。\n2.喜歡的事物、料理、顏色、學科等等。\n3.慣用語介紹2。\n4.教室活動---問卷調查。\n三\n我要去京都\n1.移動動詞導入。\n2.天氣用語。\n3.教室活動---天氣報告。\n四\n請給我兩個蘋果\n1.量詞。\n2.蔬果讀法。\n3.調理用具及間單料理方式讀法。\n4.教室活動---寫食譜。（食材、數量）\n五\n昨天我去看電影\n1.動詞過去式導入。\n2.慣用語介紹3。\n3.教室活動---我的一天。\n六\n櫻花很美\n1.形容詞導入。\n2.喜惡愛好的句型。\n3.教室活動---尋找形容詞的相反詞。\n七\n漂亮的洋裝\n1.形容詞復習。\n2.な形容詞導入。\n3.形容詞、名詞句型導入。\n4.教室活動---事物描寫。\n八\n感冒了向學校請假\n1.表『原因』的から導入。\n2.邀約與拒絕的句型。\n3. 教室活動---句子組合練習（理由、原因）。\n九\n昨天的天氣比今天熱\n1.比較句型。\n2.形容詞過去式導入。\n3.教室活動---天氣主播。\n十\n表達『希望』\n1.表達希望的字彙。\n2.第一人稱與第三人稱表達希望的句型說明。\n3. 教室活動---表達自己的期望。\n十一\n文化介紹\n1.日本年中行事。\n2.異文化的理解與意見回饋。\n十二\n未來的志向。\n1. 職業的讀法，職業名稱。\n2. 日本職場文化介紹（應允與拒絕行為）。\n3. 職業名稱猜謎及賓果遊戲。\n十三\n形同意不同。\n1.中文和漢字相同，意思完全不同的字詞。\n2.短文閱讀。\n十四\n擬聲語、擬態語\n1.擬聲語、擬態語的介紹，學習依照情境運用。\n2.擬聲語、擬態語加上動詞的使用。\n3.以插畫圖片記憶擬聲語、擬態語。\n十五\n我家附近的建築物\n1.建築物的讀法。\n2.方向字彙及句型導入。\n3.讓學生自己畫地圖，發表自家周圍的建築物。\n十六\n木村先生送玫瑰花給我\n1.授受動詞導入。\n2.親殊關係之應用句型。\n3.教室活動---授受動詞的卡片遊戲。\n十七\n銀行領錢\n1. ATM使用的基本單字句型。\n2.基本生活會話。\n十八\n文化介紹\n日本的年中行事（賞櫻花、入學式、鯉魚節、女兒節、耶誕節、 除夕等等）。\n十九\n分組發表會\n1.分野：文化、食物、動漫、流行歌曲、旅行、流行、社會現象等等分野、學生五人一個分野、自行決定該分野的題目、團隊討論如何收集消化整合資料、以PPT形式發表。\n2.小組討論，團隊合作。\n3.與學生意見交流。\n二十\n期末總復習\n1.學期末總復習。\n2.與學生意見交流。\n二十一\n二十二", "學習評量": "1.上課態度。（40%）\n2.口頭發表。(20%)\n3.出席率。(20%)\n4.書面報告。(20%)", "備註": "", "schedule": [{"week": "一", "topic": "這不是我的課本", "content": "1.指示詞（これ、それ、あれ）。"}, {"week": "二", "topic": "訪談遊戲", "content": "1.疑問詞導入（どこ、何、いつ、どんな）。"}, {"week": "三", "topic": "我要去京都", "content": "1.移動動詞導入。"}, {"week": "四", "topic": "請給我兩個蘋果", "content": "1.量詞。"}, {"week": "五", "topic": "昨天我去看電影", "content": "1.動詞過去式導入。"}, {"week": "六", "topic": "櫻花很美", "content": "1.形容詞導入。"}, {"week": "七", "topic": "漂亮的洋裝", "content": "1.形容詞復習。"}, {"week": "八", "topic": "感冒了向學校請假", "content": "1.表『原因』的から導入。"}, {"week": "九", "topic": "昨天的天氣比今天熱", "content": "1.比較句型。"}, {"week": "十", "topic": "表達『希望』", "content": "1.表達希望的字彙。"}, {"week": "十一", "topic": "文化介紹", "content": "1.日本年中行事。"}, {"week": "十二", "topic": "未來的志向。", "content": "1. 職業的讀法，職業名稱。"}, {"week": "十三", "topic": "形同意不同。", "content": "1.中文和漢字相同，意思完全不同的字詞。"}, {"week": "十四", "topic": "擬聲語、擬態語", "content": "1.擬聲語、擬態語的介紹，學習依照情境運用。"}, {"week": "十五", "topic": "我家附近的建築物", "content": "1.建築物的讀法。"}, {"week": "十六", "topic": "木村先生送玫瑰花給我", "content": "1.授受動詞導入。"}, {"week": "十七", "topic": "銀行領錢", "content": "1. ATM使用的基本單字句型。"}, {"week": "十八", "topic": "文化介紹", "content": "日本的年中行事（賞櫻花、入學式、鯉魚節、女兒節、耶誕節、 除夕等等）。"}, {"week": "十九", "topic": "分組發表會", "content": "1.分野：文化、食物、動漫、流行歌曲、旅行、流行、社會現象等等分野、學生五人一個分野、自行決定該分野的題目、團隊討論如何收集消化整合資料、以PPT形式發表。"}, {"week": "二十", "topic": "期末總復習", "content": "1.學期末總復習。"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "當AI遇上股票：AI入門", "name_en": "When AI meets stocks：AI introduction", "授課年段": "二下", "學分總數": "2", "課程屬性": "跨領域/科目專題", "議題融入": "科技、資訊、家庭教育", "師資來源": "跨校協同", "課綱核心素養": "A自主行動：\nA2.系統思考與問題解決,\nB溝通互動：\nB1.符號運用與溝通表達, B2.科技資訊與媒體素養,\nC社會參與：", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom),", "學習目標": "1.資訊科技專題製作能力\n學會整合適當的資訊科技，並與他人合作完成專題製作。（資T-IV-2、運c-V-3）\n資訊表達與思維組織\n能選用適當的資訊科技，組織清晰的思維並進行有效的表達。（運p-IV-1）\n問題運算能力\n能將問題以運算的形式呈現，提升解決問題的效率與準確性。（※運r-V-1）\n2. 綜合活動領域 - 家政科\n生活管理能力\n培養金錢與時間管理能力，提升個人及家庭生活的規劃效率。（家Ca-IV-1）\n財金素養與消費規劃\n涵養財金素養，整合消費能力，妥善規劃個人財務生活，建立理性的理財觀念。（家3a-V-2）", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n人工智慧簡介\n人工智慧簡介\n二\n人工智慧相關背景知識\n人工智慧相關背景知識\n三\n監督式學習\n監督式學習\n四\n監督式學習\n監督式學習\n五\n非監督式學習\n非監督式學習\n六\n增強式學習\n增強式學習\n七\n深度學習\n深度學習\n八\nCNN實作\nCNN實作\n九\n投資與理財\n投資與理財\n十\n理財達人團體賽\n理財達人團體賽\n十一\nCNN股價預測實作#1\nCNN股價預測實作#1\n十二\n股價漲跌因素分析\n股價漲跌因素分析\n十三\nCNN股價預測實作#2\nCNN股價預測實作#2\n十四\nProject實作#1\nProject實作#1\n十五\nProject實作#2\nProject實作#2\n十六\nProject實作#3\nProject實作#3\n十七\n成果發表\nYouTube線上直播\n十八\n理財達人團體賽\n理財達人團體賽\n十九\n二十\n二十一\n二十二", "學習評量": "出席：10%\n課堂表現：10%\n課堂練習作業：20%\n期末project：60%", "備註": "1.學完這門課，你不會變成投資達人、不會變有錢、不會變成AI專家；但是你會了解投資理財的重要性、也許會開始行動、可能會覺得AI很有趣，將來會花時間去研究它\n2.這門課程假設你已具備以下能力，再建議選修：\n• 熟悉Python基本語法\n• 變數、輸入、輸出\n• 條件判斷、迴圈\n• 熟悉Python特殊的資料型別\n• Function\n• 第三方模組的安裝/管理\n• Numpy, Pandas, Matplotlib\n• 簡單的專題實作", "schedule": [{"week": "一", "topic": "人工智慧簡介", "content": "人工智慧簡介"}, {"week": "二", "topic": "人工智慧相關背景知識", "content": "人工智慧相關背景知識"}, {"week": "三", "topic": "監督式學習", "content": "監督式學習"}, {"week": "四", "topic": "監督式學習", "content": "監督式學習"}, {"week": "五", "topic": "非監督式學習", "content": "非監督式學習"}, {"week": "六", "topic": "增強式學習", "content": "增強式學習"}, {"week": "七", "topic": "深度學習", "content": "深度學習"}, {"week": "八", "topic": "CNN實作", "content": "CNN實作"}, {"week": "九", "topic": "投資與理財", "content": "投資與理財"}, {"week": "十", "topic": "理財達人團體賽", "content": "理財達人團體賽"}, {"week": "十一", "topic": "CNN股價預測實作#1", "content": "CNN股價預測實作#1"}, {"week": "十二", "topic": "股價漲跌因素分析", "content": "股價漲跌因素分析"}, {"week": "十三", "topic": "CNN股價預測實作#2", "content": "CNN股價預測實作#2"}, {"week": "十四", "topic": "Project實作#1", "content": "Project實作#1"}, {"week": "十五", "topic": "Project實作#2", "content": "Project實作#2"}, {"week": "十六", "topic": "Project實作#3", "content": "Project實作#3"}, {"week": "十七", "topic": "成果發表", "content": "YouTube線上直播"}, {"week": "十八", "topic": "理財達人團體賽", "content": "理財達人團體賽"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "一起fun音樂", "name_en": "Learn music together for fun", "授課年段": "三上、三下", "學分總數": "2", "課程屬性": "通識性課程", "議題融入": "科技、多元文化", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA3.規劃執行與創新應變,\nB溝通互動：\nB3.藝術涵養與美感素養,\nC社會參與：\nC2.人際關係與團隊合作,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "1. 運用主題式課程設計，建構對音樂結構的認知與應用，提升聽覺之美感經驗\n2. 藉由分組實作展演，培養台風與自信，並能和他人分享自我對音樂藝術之見\n解\n3.透過音樂賞析、表演、創作抒發個人情感，並能體認音樂的社會價值，尊重多\n元文化藝術", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n課程內容概述\n學生先備知識了解，說明課程設計與進行方式\n二\n經典歌曲\n從經典歌曲中談音樂曲風\n三\n經典歌曲\n從經典歌曲中談音樂曲式與架構\n四\n創作素材\nBandlab介紹與實作\n五\n成果分享\nBandlab創作之展演與發表\n六\n創作實作\n歌詞創作與節奏應用\n七\n期中考週\n第一次段考\n八\n創作實作\n歌詞創作與節奏應用\n九\n創作素材\nRap Maker介紹與實作\n十\n成果分享\nRap Maker創作之展演與發表\n十一\n和弦與弦律\n創作旋律的邏輯\n十二\n和弦與弦律\n創作旋律的邏輯\n十三\n期中考週\n第二次段考\n十四\n創作素材\nHookpad介紹與實作\n十五\n創作素材\nChordbot Lite介紹與實作\n十六\n創作實作\n歌詞創作與旋律應用\n十七\n創作實作\n歌詞創作與旋律應用\n十八\n成果分享\n作品展演與發表\n十九\n二十\n二十一\n二十二", "學習評量": "課程參與度(50％)、作品展演(50%)", "備註": "", "schedule": [{"week": "一", "topic": "課程內容概述", "content": "學生先備知識了解，說明課程設計與進行方式"}, {"week": "二", "topic": "經典歌曲", "content": "從經典歌曲中談音樂曲風"}, {"week": "三", "topic": "經典歌曲", "content": "從經典歌曲中談音樂曲式與架構"}, {"week": "四", "topic": "創作素材", "content": "Bandlab介紹與實作"}, {"week": "五", "topic": "成果分享", "content": "Bandlab創作之展演與發表"}, {"week": "六", "topic": "創作實作", "content": "歌詞創作與節奏應用"}, {"week": "七", "topic": "期中考週", "content": "第一次段考"}, {"week": "八", "topic": "創作實作", "content": "歌詞創作與節奏應用"}, {"week": "九", "topic": "創作素材", "content": "Rap Maker介紹與實作"}, {"week": "十", "topic": "成果分享", "content": "Rap Maker創作之展演與發表"}, {"week": "十一", "topic": "和弦與弦律", "content": "創作旋律的邏輯"}, {"week": "十二", "topic": "和弦與弦律", "content": "創作旋律的邏輯"}, {"week": "十三", "topic": "期中考週", "content": "第二次段考"}, {"week": "十四", "topic": "創作素材", "content": "Hookpad介紹與實作"}, {"week": "十五", "topic": "創作素材", "content": "Chordbot Lite介紹與實作"}, {"week": "十六", "topic": "創作實作", "content": "歌詞創作與旋律應用"}, {"week": "十七", "topic": "創作實作", "content": "歌詞創作與旋律應用"}, {"week": "十八", "topic": "成果分享", "content": "作品展演與發表"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "生活在物理", "name_en": "", "授課年段": "三上、三下", "學分總數": "2", "課程屬性": "實作(實驗)及探索體驗", "議題融入": "生命、法治、閱讀素養", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA2.系統思考與問題解決, A3.規劃執行與創新應變,\nB溝通互動：\nC社會參與：\nC2.人際關係與團隊合作,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "以理解基本物理概念後，能在生活中發現問題，解釋現象，學習解決問題的能力。並能透過一般科普文章或期刊，培養閱讀與掌握重點的能力。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n課程介紹 分組\n說明18周的上課內容，並進行4~5人一組的分組。\n二\n打不倒的平衡\n透過講義介紹力學中平衡的觀念。\n三\n打不倒的平衡\n同學實際操作與體驗，並分享心得。\n四\n力大無窮的大力士\n透過講義介紹力矩的觀念。\n五\n力大無窮的大力士\n同學實際操作與體驗，並分享心得。\n六\n非牛頓流體\n課堂討論非牛頓流體的應用與介紹。\n七\n遊樂園的奇幻科學\n分組討論從生活經驗中，找出遊樂器具使用的物理原理\n八\n遊樂園的奇幻科學\n分組討論從生活經驗中，找出遊樂器具使用的物理原理\n九\n摩擦摩擦在光滑的地上\n透過講義介紹摩擦力的觀念。\n十\n摩擦摩擦在光滑的地上\n同學實際操作與體驗，並分享心得。\n十一\n軍火之王-槍\n透過講義介紹能量與碰撞的觀念。\n十二\n軍火之王-槍\n同學實際操作與體驗，並分享心得。\n十三\n紙飛機\n透過講義介紹流體力學的觀念。\n十四\n紙飛機\n同學實際操作與體驗，並分享心得。\n十五\n期末發表\n各組以15~20分鐘的長度，發表各組所做的生活物理簡報。\n十六\n期末發表\n各組以15~20分鐘的長度，發表各組所做的生活物理簡報。\n十七\n期末發表\n各組以15~20分鐘的長度，發表各組所做的生活物理簡報。\n十八\n期末發表\n各組以15~20分鐘的長度，發表各組所做的生活物理簡報。\n十九\n二十\n二十一\n二十二", "學習評量": "上課態度(30％)、操作課程(40％)、期末報告(30％)", "備註": "", "schedule": [{"week": "一", "topic": "課程介紹 分組", "content": "說明18周的上課內容，並進行4~5人一組的分組。"}, {"week": "二", "topic": "打不倒的平衡", "content": "透過講義介紹力學中平衡的觀念。"}, {"week": "三", "topic": "打不倒的平衡", "content": "同學實際操作與體驗，並分享心得。"}, {"week": "四", "topic": "力大無窮的大力士", "content": "透過講義介紹力矩的觀念。"}, {"week": "五", "topic": "力大無窮的大力士", "content": "同學實際操作與體驗，並分享心得。"}, {"week": "六", "topic": "非牛頓流體", "content": "課堂討論非牛頓流體的應用與介紹。"}, {"week": "七", "topic": "遊樂園的奇幻科學", "content": "分組討論從生活經驗中，找出遊樂器具使用的物理原理"}, {"week": "八", "topic": "遊樂園的奇幻科學", "content": "分組討論從生活經驗中，找出遊樂器具使用的物理原理"}, {"week": "九", "topic": "摩擦摩擦在光滑的地上", "content": "透過講義介紹摩擦力的觀念。"}, {"week": "十", "topic": "摩擦摩擦在光滑的地上", "content": "同學實際操作與體驗，並分享心得。"}, {"week": "十一", "topic": "軍火之王-槍", "content": "透過講義介紹能量與碰撞的觀念。"}, {"week": "十二", "topic": "軍火之王-槍", "content": "同學實際操作與體驗，並分享心得。"}, {"week": "十三", "topic": "紙飛機", "content": "透過講義介紹流體力學的觀念。"}, {"week": "十四", "topic": "紙飛機", "content": "同學實際操作與體驗，並分享心得。"}, {"week": "十五", "topic": "期末發表", "content": "各組以15~20分鐘的長度，發表各組所做的生活物理簡報。"}, {"week": "十六", "topic": "期末發表", "content": "各組以15~20分鐘的長度，發表各組所做的生活物理簡報。"}, {"week": "十七", "topic": "期末發表", "content": "各組以15~20分鐘的長度，發表各組所做的生活物理簡報。"}, {"week": "十八", "topic": "期末發表", "content": "各組以15~20分鐘的長度，發表各組所做的生活物理簡報。"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "生活與化學", "name_en": "", "授課年段": "三上、三下", "學分總數": "2", "課程屬性": "實作(實驗)及探索體驗", "議題融入": "環境、能源、安全、防災", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA2.系統思考與問題解決,\nB溝通互動：\nB2.科技資訊與媒體素養,\nC社會參與：\nC2.人際關係與團隊合作,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "以認識化學的基本概念後，能了解化學與生活的相關，並能觀察出優、缺點，提出解決問題的方向，並培養閱讀期刊或科普文章的能力，學習掌握重點。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n課程介紹 分組\n說明18周的上課內容，並進行4~5人一組的分組。\n二\n肥皂的清潔原理\n老師講解肥皂誕生的由來，讓學生明瞭肥皂的製造程序及清潔原理。\n三\n肥皂與清潔劑的異同\n讓學生明瞭肥皂與清潔劑的異、同之處。\n四\n味精的介紹\n讓學生明瞭味精如何讓煲湯變美味及味精的缺點。\n五\n廚房中的酸鹼物質\n讓學生認識廚房中的酸、鹼物質及應用。\n六\n各顯神通的化學元素(1)\n介紹一些重要元素的特性、應用及價值。\n七\n各顯神通的化學元素(2)\n介紹一些重要元素的特性、應用及價值。\n八\n諾貝爾與諾貝爾獎的介紹(1)\n讓學生認識諾貝爾的貢獻及諾貝爾化學獎的研究內容。\n九\n諾貝爾與諾貝爾獎的介紹(2)\n讓學生認識諾貝爾的貢獻及諾貝爾化學獎的研究內容。\n十\n醫用消毒藥水的原理與種類(1)\n讓學生明瞭醫用消毒藥水的原理與種類。\n十一\n醫用消毒藥水的原理與種類(2)\n讓學生明瞭醫用消毒藥水的原理與種類。\n十二\n空氣汙染的介紹及防範\n介紹空氣汙染的原因、來源及防範的方法。\n十三\n水資源汙染的介紹及防範\n介紹水資源汙染的原因、來源及防範的方法。\n十四\n土壤汙染的介紹及防範\n介紹土壤汙染的原因、來源及防範的方法。\n十五\n期末發表\n各組以15~20分鐘的長度，發表各組所做的生活中的化學簡報。\n十六\n期末發表\n各組以15~20分鐘的長度，發表各組所做的生活中的化學簡報。\n十七\n期末發表\n各組以15~20分鐘的長度，發表各組所做的生活中的化學簡報。\n十八\n期末發表\n各組以15~20分鐘的長度，發表各組所做的生活中的化學簡報。\n十九\n二十\n二十一\n二十二", "學習評量": "上課態度(30％)、課程操作(40％)、期末報告發表(30％)", "備註": "", "schedule": [{"week": "一", "topic": "課程介紹 分組", "content": "說明18周的上課內容，並進行4~5人一組的分組。"}, {"week": "二", "topic": "肥皂的清潔原理", "content": "老師講解肥皂誕生的由來，讓學生明瞭肥皂的製造程序及清潔原理。"}, {"week": "三", "topic": "肥皂與清潔劑的異同", "content": "讓學生明瞭肥皂與清潔劑的異、同之處。"}, {"week": "四", "topic": "味精的介紹", "content": "讓學生明瞭味精如何讓煲湯變美味及味精的缺點。"}, {"week": "五", "topic": "廚房中的酸鹼物質", "content": "讓學生認識廚房中的酸、鹼物質及應用。"}, {"week": "六", "topic": "各顯神通的化學元素(1)", "content": "介紹一些重要元素的特性、應用及價值。"}, {"week": "七", "topic": "各顯神通的化學元素(2)", "content": "介紹一些重要元素的特性、應用及價值。"}, {"week": "八", "topic": "諾貝爾與諾貝爾獎的介紹(1)", "content": "讓學生認識諾貝爾的貢獻及諾貝爾化學獎的研究內容。"}, {"week": "九", "topic": "諾貝爾與諾貝爾獎的介紹(2)", "content": "讓學生認識諾貝爾的貢獻及諾貝爾化學獎的研究內容。"}, {"week": "十", "topic": "醫用消毒藥水的原理與種類(1)", "content": "讓學生明瞭醫用消毒藥水的原理與種類。"}, {"week": "十一", "topic": "醫用消毒藥水的原理與種類(2)", "content": "讓學生明瞭醫用消毒藥水的原理與種類。"}, {"week": "十二", "topic": "空氣汙染的介紹及防範", "content": "介紹空氣汙染的原因、來源及防範的方法。"}, {"week": "十三", "topic": "水資源汙染的介紹及防範", "content": "介紹水資源汙染的原因、來源及防範的方法。"}, {"week": "十四", "topic": "土壤汙染的介紹及防範", "content": "介紹土壤汙染的原因、來源及防範的方法。"}, {"week": "十五", "topic": "期末發表", "content": "各組以15~20分鐘的長度，發表各組所做的生活中的化學簡報。"}, {"week": "十六", "topic": "期末發表", "content": "各組以15~20分鐘的長度，發表各組所做的生活中的化學簡報。"}, {"week": "十七", "topic": "期末發表", "content": "各組以15~20分鐘的長度，發表各組所做的生活中的化學簡報。"}, {"week": "十八", "topic": "期末發表", "content": "各組以15~20分鐘的長度，發表各組所做的生活中的化學簡報。"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "英文真遊趣", "name_en": "", "授課年段": "三上、三下", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "環境、科技、國際教育", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nB溝通互動：\nB1.符號運用與溝通表達, B3.藝術涵養與美感素養,\nC社會參與：\nC3.多元文化與國際理解,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "近程目標\n(1) 使學生具備基礎 英語 聽、 說、 讀、寫 及譯能力。\n(2) 使學生具備觀光旅遊英語相關之知識及對應之能。\n中程目標\n(1) 使學生具備探索與自我學習的能力。\n(2) 使學生具備協調溝通，發揮合作精神，培養學生解決問題之能力。\n遠程目標\n(1) 增廣學生見聞，培養了解並欣賞異國文化之美的能力。\n(2) 開闊學生視野及思考能力。\n(3) 保護關懷地球。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n課程說明\n介紹課程內容、評量方式和分組\n二\n引起動機\n歐美景點介紹和自助旅行簡介\n三\n機場及出入境簡介\n練習在飛機上以及入境時英文對話\n四\n在飯店\n飯店住宿登記英文對話\n五\n在餐廳\n餐廳用餐時所需英文對話\n六\n分組編寫觀光影片\n內容選擇在機場、入境、入住飯店、餐廳點菜用餐\n七\n分組拍攝英文短片\n內容選擇在機場、入境、入住飯店、餐廳點菜用餐\n八\n影片欣賞\n小組觀光影片自評與互評\n九\n搭車\n練習問路到達特定觀光景點的用語\n十\n購物\n練習購物時所需之英文用語\n十一\n緊急狀況\n尋求幫忙的英文用語:迷路時\n十二\n緊急狀況\n尋求幫忙的英文用語:失竊時\n十三\n緊急狀況\n尋求幫忙的英文用語:受傷時\n十四\n分組編寫觀光影片\n內容包含到達特定景點、購物以及危機處理\n十五\n分組編寫觀光影片\n內容包含到達特定景點、購物以及危機處理\n十六\n分組拍攝英文短片\n拍到達特定景點、購物以及危機處理影片\n十七\n影片欣賞\n小組觀光影片自評與互評\n十八\n影片欣賞\n小組觀光影片自評與互評\n十九\n二十\n二十一\n二十二", "學習評量": "(1)角色扮演對話流利度及內容  30%\n(2)小組觀光影片:內容 20%  英文流利度 20%  影片拍攝剪輯: 30%", "備註": "", "schedule": [{"week": "一", "topic": "課程說明", "content": "介紹課程內容、評量方式和分組"}, {"week": "二", "topic": "引起動機", "content": "歐美景點介紹和自助旅行簡介"}, {"week": "三", "topic": "機場及出入境簡介", "content": "練習在飛機上以及入境時英文對話"}, {"week": "四", "topic": "在飯店", "content": "飯店住宿登記英文對話"}, {"week": "五", "topic": "在餐廳", "content": "餐廳用餐時所需英文對話"}, {"week": "六", "topic": "分組編寫觀光影片", "content": "內容選擇在機場、入境、入住飯店、餐廳點菜用餐"}, {"week": "七", "topic": "分組拍攝英文短片", "content": "內容選擇在機場、入境、入住飯店、餐廳點菜用餐"}, {"week": "八", "topic": "影片欣賞", "content": "小組觀光影片自評與互評"}, {"week": "九", "topic": "搭車", "content": "練習問路到達特定觀光景點的用語"}, {"week": "十", "topic": "購物", "content": "練習購物時所需之英文用語"}, {"week": "十一", "topic": "緊急狀況", "content": "尋求幫忙的英文用語:迷路時"}, {"week": "十二", "topic": "緊急狀況", "content": "尋求幫忙的英文用語:失竊時"}, {"week": "十三", "topic": "緊急狀況", "content": "尋求幫忙的英文用語:受傷時"}, {"week": "十四", "topic": "分組編寫觀光影片", "content": "內容包含到達特定景點、購物以及危機處理"}, {"week": "十五", "topic": "分組編寫觀光影片", "content": "內容包含到達特定景點、購物以及危機處理"}, {"week": "十六", "topic": "分組拍攝英文短片", "content": "拍到達特定景點、購物以及危機處理影片"}, {"week": "十七", "topic": "影片欣賞", "content": "小組觀光影片自評與互評"}, {"week": "十八", "topic": "影片欣賞", "content": "小組觀光影片自評與互評"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "島嶼思辨", "name_en": "", "授課年段": "三上、三下", "學分總數": "2", "課程屬性": "跨領域/科目統整", "議題融入": "人權、生命、原住民族教育", "師資來源": "校內跨科協同", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進, A2.系統思考與問題解決,\nB溝通互動：\nB1.符號運用與溝通表達,\nC社會參與：\nC1.道德實踐與公民意識, C2.人際關係與團隊合作, C3.多元文化與國際理解,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "以閱讀文本為出點，開啟學生觀看世相的窗口，並藉由主題式的思考與討論，擴大學\n生社會參與和文化共識，繼而能成為一位良好的全球公民與道德實踐者。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n簡介與策展練習\n1.課程簡介、分組\n2.標題設計的基本概念與練習\n3.組裝行動展版，佈置小型展覽\n二\n白恐背景補充\n1九宮格聯想關鍵詞\n2.以網頁遊戲「你是戒嚴時代的誰呢？」認識真實案件\n3.白恐小說選讀\n三\n白恐文本\n白恐小說閱讀與分析\n四\n白恐文本\n白恐小說閱讀與分析\n五\n白恐文本\n小組討論與發表\n六\n策展練習\n1.規劃策展主題與大綱\n2.策展發想與範例說明\n3.策展企劃書寫作指引\n七\n展覽參訪\n1.參訪台文館（臺史博、美術館）\n2.完成參訪學習單\n八\n參訪後分享\n1.組內分享，並彙整觀察到的亮點\n2.全班分享，各組提出三項可以學習的策展方式\n九\n白恐文學策展企劃書\n發表企劃書\n十\n族群認同\n1.每人帶來一項物品，藉物品分享自己的族群故事\n2.多元族群認同與尊重的探討\n十一\n原民文本\n原民小說閱讀與分析\n十二\n原民文本\n以小說為本，各組提出三項想探討的議題，搜尋相關資料與文獻\n十三\n原民文學策展企劃書\n各組設立一個子標題寫在白板上，跟全班報告標題的緣由。\n十四\n原民文學策展企劃書\n1.老師供指引、範例，調整小組策展內容\n2.撰寫策展企劃書\n十五\n原民文學策展企劃書\n1.企劃書互評\n2.企劃書修正與執行\n十六\n原民文學策展\n布置展版展品\n十七\n原民文學策展\n1.外聘講師對談\n2.學生導覽與撤展\n十八\n原民文學策展\n策展反思\n十九\n二十\n二十一\n二十二", "學習評量": "1學習單30%\n2出席15%\n3參與15%\n4策展40%", "備註": "", "schedule": [{"week": "一", "topic": "簡介與策展練習", "content": "1.課程簡介、分組"}, {"week": "二", "topic": "白恐背景補充", "content": "1九宮格聯想關鍵詞"}, {"week": "三", "topic": "白恐文本", "content": "白恐小說閱讀與分析"}, {"week": "四", "topic": "白恐文本", "content": "白恐小說閱讀與分析"}, {"week": "五", "topic": "白恐文本", "content": "小組討論與發表"}, {"week": "六", "topic": "策展練習", "content": "1.規劃策展主題與大綱"}, {"week": "七", "topic": "展覽參訪", "content": "1.參訪台文館（臺史博、美術館）"}, {"week": "八", "topic": "參訪後分享", "content": "1.組內分享，並彙整觀察到的亮點"}, {"week": "九", "topic": "白恐文學策展企劃書", "content": "發表企劃書"}, {"week": "十", "topic": "族群認同", "content": "1.每人帶來一項物品，藉物品分享自己的族群故事"}, {"week": "十一", "topic": "原民文本", "content": "原民小說閱讀與分析"}, {"week": "十二", "topic": "原民文本", "content": "以小說為本，各組提出三項想探討的議題，搜尋相關資料與文獻"}, {"week": "十三", "topic": "原民文學策展企劃書", "content": "各組設立一個子標題寫在白板上，跟全班報告標題的緣由。"}, {"week": "十四", "topic": "原民文學策展企劃書", "content": "1.老師供指引、範例，調整小組策展內容"}, {"week": "十五", "topic": "原民文學策展企劃書", "content": "1.企劃書互評"}, {"week": "十六", "topic": "原民文學策展", "content": "布置展版展品"}, {"week": "十七", "topic": "原民文學策展", "content": "1.外聘講師對談"}, {"week": "十八", "topic": "原民文學策展", "content": "策展反思"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "速養英文力-英文圖文識讀", "name_en": "Visual Literacy: Learning through Infographics", "授課年段": "三上、三下", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "環境、閱讀素養", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進,\nB溝通互動：\nB1.符號運用與溝通表達, B2.科技資訊與媒體素養,\nC社會參與：\nC1.道德實踐與公民意識,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "1. 理解文本結構與脈絡。\n2. 訓練學生換位思考與表達。\n3. 發展「文轉圖」的能力，將長文轉化成圖文表達。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\nIntroduction\n課程說明並分組\n二\nInfographics- 概念介紹(一)\nInfographics的種類及生活中的應用\n三\nInfographics- 概念介紹(二)\n社群媒體上的infographics\n四\n製作工具認識\n介紹infographics 常用網站\n五\n閱讀Infographics 文章- 健康類\n讀健康類的infographics\n解構文本與圖表之間的脈絡\n六\n閱讀Infographics 文章- 健康類\n讀健康類的infographics\n解構文本與圖表之間的脈絡\n七\n閱讀Infographics文章-生態類\n讀生態類的infographics\n解構文本與圖表之間的脈絡\n八\n閱讀Infographics文章-生態類\n讀生態類的infographics\n解構文本與圖表之間的脈絡\n九\n閱讀 Infographics 文章-心理類\n讀心理類的infographics\n解構文本與圖表之間的脈絡\n十\n閱讀 Infographics 文章-人文類\n讀人文類的infographics\n解構文本與圖表之間的脈絡\n十一\n閱讀 Infographics 文章-社科類\n讀社科類的infographics\n解構文本與圖表之間的脈絡\n十二\n實作Infographics (一)\n實作分析老師所提供文本的內部關係\n再以圖表呈現內文信息\n十三\n實作Infographics (二)\n實作分析老師所提供文本的內部關係\n再以圖表呈現內文信息\n十四\n找尋題材\n學生自行尋找期末報告所需的文本\n十五\n拆解文本\n透過學期中所學之概念與方式\n將尋找到的文本進行「文轉圖」\n十六\n轉化Infographics\n透過學期中所學之概念與方式\n將尋找到的文本進行「文轉圖」\n十七\n期末Presentation\n分組上台報告(報告內容規劃包含主題背景、問題分析、研究方法、數據呈現及結論建議。)\n十八\n期末Presentation\n分組上台報告方式以小組合作、簡報展示為主，輔以書面報告。\n十九\n二十\n二十一\n二十二", "學習評量": "(1)學習檔案評量:討論、講述、心得與研究報告: 50%\n(2)實作評量:分組期末報告: 50%", "備註": "", "schedule": [{"week": "一", "topic": "Introduction", "content": "課程說明並分組"}, {"week": "二", "topic": "Infographics- 概念介紹(一)", "content": "Infographics的種類及生活中的應用"}, {"week": "三", "topic": "Infographics- 概念介紹(二)", "content": "社群媒體上的infographics"}, {"week": "四", "topic": "製作工具認識", "content": "介紹infographics 常用網站"}, {"week": "五", "topic": "閱讀Infographics 文章- 健康類", "content": "讀健康類的infographics"}, {"week": "六", "topic": "閱讀Infographics 文章- 健康類", "content": "讀健康類的infographics"}, {"week": "七", "topic": "閱讀Infographics文章-生態類", "content": "讀生態類的infographics"}, {"week": "八", "topic": "閱讀Infographics文章-生態類", "content": "讀生態類的infographics"}, {"week": "九", "topic": "閱讀 Infographics 文章-心理類", "content": "讀心理類的infographics"}, {"week": "十", "topic": "閱讀 Infographics 文章-人文類", "content": "讀人文類的infographics"}, {"week": "十一", "topic": "閱讀 Infographics 文章-社科類", "content": "讀社科類的infographics"}, {"week": "十二", "topic": "實作Infographics (一)", "content": "實作分析老師所提供文本的內部關係"}, {"week": "十三", "topic": "實作Infographics (二)", "content": "實作分析老師所提供文本的內部關係"}, {"week": "十四", "topic": "找尋題材", "content": "學生自行尋找期末報告所需的文本"}, {"week": "十五", "topic": "拆解文本", "content": "透過學期中所學之概念與方式"}, {"week": "十六", "topic": "轉化Infographics", "content": "透過學期中所學之概念與方式"}, {"week": "十七", "topic": "期末Presentation", "content": "分組上台報告(報告內容規劃包含主題背景、問題分析、研究方法、數據呈現及結論建議。)"}, {"week": "十八", "topic": "期末Presentation", "content": "分組上台報告方式以小組合作、簡報展示為主，輔以書面報告。"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "飲食文學的欣賞與創作", "name_en": "", "授課年段": "三上、三下", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "環境、多元文化、閱讀素養", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA3.規劃執行與創新應變,\nB溝通互動：\nB3.藝術涵養與美感素養,\nC社會參與：\nC2.人際關係與團隊合作,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "透過文字和影像，傳遞食物的百般滋味，進一步，分享精彩的飲食、人生與日常生活體驗。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n課程說明\n課程介紹與分組，飲食文學介紹\n二\n做菜的意義\n台灣辦桌菜—電影 總鋪師\n三\n食譜介紹\n台灣辦桌菜/小組共編\n四\n憶舊飲食\n林文月《飲膳札記》導讀\n五\n憶舊飲食\n仿作：我最有感的一道菜\n六\n台南小吃\n王浩一《慢食府城》導讀\n七\n台南小吃\n小組推薦大會/票選\n八\n一日三餐\n影片欣賞-舌尖上的中國\n九\n一日三餐\n家的味道：攝影和旁白\n十\n美味關係\n愛情與飲食-電影 喜歡你\n十一\n八方美味\n各國料理介紹/小組共編\n十二\n考證飲食\n逯耀東《出門訪古》導讀\n十三\n考證飲食\n尋訪台灣的古早味/小組共編\n十四\n幸福的味道\n簡單的滋味-\n電影 淺草幸福的麵包\n十五\n幸福的味道\n我最喜歡的一種味道\n十六\n五味人生\n酸甜苦辣鹹/代表食物\n/小組共編\n十七\n一人一菜\n我是美食作家\n十八\n期末發表會\n個人作品發表和學生學期回饋\n十九\n二十\n二十一\n二十二", "學習評量": "1.小組共編報告30% 2.個人上台報告30% 3.個人手寫作品40%", "備註": "", "schedule": [{"week": "一", "topic": "課程說明", "content": "課程介紹與分組，飲食文學介紹"}, {"week": "二", "topic": "做菜的意義", "content": "台灣辦桌菜—電影 總鋪師"}, {"week": "三", "topic": "食譜介紹", "content": "台灣辦桌菜/小組共編"}, {"week": "四", "topic": "憶舊飲食", "content": "林文月《飲膳札記》導讀"}, {"week": "五", "topic": "憶舊飲食", "content": "仿作：我最有感的一道菜"}, {"week": "六", "topic": "台南小吃", "content": "王浩一《慢食府城》導讀"}, {"week": "七", "topic": "台南小吃", "content": "小組推薦大會/票選"}, {"week": "八", "topic": "一日三餐", "content": "影片欣賞-舌尖上的中國"}, {"week": "九", "topic": "一日三餐", "content": "家的味道：攝影和旁白"}, {"week": "十", "topic": "美味關係", "content": "愛情與飲食-電影 喜歡你"}, {"week": "十一", "topic": "八方美味", "content": "各國料理介紹/小組共編"}, {"week": "十二", "topic": "考證飲食", "content": "逯耀東《出門訪古》導讀"}, {"week": "十三", "topic": "考證飲食", "content": "尋訪台灣的古早味/小組共編"}, {"week": "十四", "topic": "幸福的味道", "content": "簡單的滋味-"}, {"week": "十五", "topic": "幸福的味道", "content": "我最喜歡的一種味道"}, {"week": "十六", "topic": "五味人生", "content": "酸甜苦辣鹹/代表食物"}, {"week": "十七", "topic": "一人一菜", "content": "我是美食作家"}, {"week": "十八", "topic": "期末發表會", "content": "個人作品發表和學生學期回饋"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "愛情社會學", "name_en": "Sociology of Love", "授課年段": "三上、三下", "學分總數": "2", "課程屬性": "通識性課程", "議題融入": "性別平等, 人權", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進, A2.系統思考與問題解決\nB溝通互動：\nB1.符號運用與溝通表達\nC社會參與：\nC2.人際關係與團隊合作", "學生圖像": "發展力, 健康力", "學習目標": "愛情為人生一大難題，為情所苦的社會新聞比比皆是，因此本課程希望學生能夠將所學應用於日常生活中，同時反思自己的行為和價值觀，並在學習過程中努力成為更好的自己，在情路上愛自己也尊重別人。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n課程簡介\n課程簡介，何謂愛情？何謂社會學？愛情在社會結構中的樣貌。\n二\n社會學家的愛情分析\n社會學家與社會心理學家如何看待愛與愛情\n三\n愛情與文化\n不同國家對於愛情的表現\n四\n愛情的依附風格\n愛情依附理論\n五\n愛情的種子\n你的理想型是你的理想型？(擇偶)\n六\n第一次段考\n第一次段考\n七\n追愛一陣風\n《跟蹤騷擾防制法》、《性騷擾防治法》\n八\n愛情的萌芽\n約會的意義與功能\n九\n愛情的灌溉\n愛情的維繫理論\n十\n戀愛的續集\n婚姻關係，《民法》\n十一\n愛情的枯竭\n愛情的結束\n十二\n第二次段考\n第二次段考\n十三\n溝通與愛情\n鏡面理論、符號互動論\n十四\n人際關係與愛情\n角色衝突、角色距離、角色緊張\n十五\n愛情的偏差行為與犯罪\n《家庭暴力防治法》、《跟蹤騷擾防制法》、《性騷擾防治法》\n十六\n綜合討論\n課程總結 I\n十七\n綜合討論\n課程總結 II\n十八\n第三次段考\n第三次段考\n十九\n二十\n二十一\n二十二", "學習評量": "1.個人作業40%：完成課堂指定作業與學習單，並準時繳交。\n2.團體作業40%：完成分組作業，與分組討論參與。\n3.出席成績10%：於授課時間準時參與課程。\n4.上課態度10%：課程中的參與程度、發言程度、發言內容合適度。", "備註": "", "schedule": [{"week": "一", "topic": "課程簡介", "content": "課程簡介，何謂愛情？何謂社會學？愛情在社會結構中的樣貌。"}, {"week": "二", "topic": "社會學家的愛情分析", "content": "社會學家與社會心理學家如何看待愛與愛情"}, {"week": "三", "topic": "愛情與文化", "content": "不同國家對於愛情的表現"}, {"week": "四", "topic": "愛情的依附風格", "content": "愛情依附理論"}, {"week": "五", "topic": "愛情的種子", "content": "你的理想型是你的理想型？(擇偶)"}, {"week": "六", "topic": "第一次段考", "content": "第一次段考"}, {"week": "七", "topic": "追愛一陣風", "content": "《跟蹤騷擾防制法》、《性騷擾防治法》"}, {"week": "八", "topic": "愛情的萌芽", "content": "約會的意義與功能"}, {"week": "九", "topic": "愛情的灌溉", "content": "愛情的維繫理論"}, {"week": "十", "topic": "戀愛的續集", "content": "婚姻關係，《民法》"}, {"week": "十一", "topic": "愛情的枯竭", "content": "愛情的結束"}, {"week": "十二", "topic": "第二次段考", "content": "第二次段考"}, {"week": "十三", "topic": "溝通與愛情", "content": "鏡面理論、符號互動論"}, {"week": "十四", "topic": "人際關係與愛情", "content": "角色衝突、角色距離、角色緊張"}, {"week": "十五", "topic": "愛情的偏差行為與犯罪", "content": "《家庭暴力防治法》、《跟蹤騷擾防制法》、《性騷擾防治法》"}, {"week": "十六", "topic": "綜合討論", "content": "課程總結 I"}, {"week": "十七", "topic": "綜合討論", "content": "課程總結 II"}, {"week": "十八", "topic": "第三次段考", "content": "第三次段考"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "數學多元思考與問題解決", "name_en": "", "授課年段": "三上", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "閱讀素養", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進, A2.系統思考與問題解決,\nB溝通互動：\nB1.符號運用與溝通表達,\nC社會參與：", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "1.\t培養學生以數學思考問題、分析問題和解決問題的能力。\n2.\t藉由分組討論與演示, 訓練學生的口語表達力與思考力\n3.\t訓練學生精準書寫解題的能力", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n預備週\n說明與示範課程進行方式,並進行分組與討論\n二\n數與式\n數系的發展史簡介，絕對值意涵與運用\n三\n函數\n生活中的函數：價目表、時刻表\n四\n多項式函數\n多項式函數與圖形\n五\n指數\n新冠病毒RO值(基礎傳染數)的意涵與變化\n六\n對數\n不知不覺中我們都用到了對數\n七\n直線與圓\n<塔防遊戲>上的平面座標\n八\n數列與級數\n大自然的數學密碼：Fibonacci sequence\n九\n排列組合\n排列與組合面面觀\n十\n機率\n來玩撲克牌吧：同花順的機率\n十一\n數據分析\n藏在數據裡的人生解答\n十二\n三角函數的秘密\n了解三角比與極座標內涵\n十三\n三角函數的秘密\n弳度單位的定義與三角函數的圖形\n十四\n三角函數的秘密\n波波相連到天邊：正餘弦疊合技巧\n十五\n三角函數的秘密\n初探複數平面、複數的極式\n十六\n向量\n藉由GGB作圖來透視向量的線性組合\n十七\n空間中的直線與平面\n點.線.面的探究\n十八\n圓與球\n地球經緯度的空間座標計算\n十九\n圓錐曲線\n圓錐截痕探究\n二十\n綜合練習\n綜合練習\n二十一\n期末考\n期末考\n二十二", "學習評量": "學習態度40%\n紙筆作業30%\n分組討論演示30%", "備註": "", "schedule": [{"week": "一", "topic": "預備週", "content": "說明與示範課程進行方式,並進行分組與討論"}, {"week": "二", "topic": "數與式", "content": "數系的發展史簡介，絕對值意涵與運用"}, {"week": "三", "topic": "函數", "content": "生活中的函數：價目表、時刻表"}, {"week": "四", "topic": "多項式函數", "content": "多項式函數與圖形"}, {"week": "五", "topic": "指數", "content": "新冠病毒RO值(基礎傳染數)的意涵與變化"}, {"week": "六", "topic": "對數", "content": "不知不覺中我們都用到了對數"}, {"week": "七", "topic": "直線與圓", "content": "<塔防遊戲>上的平面座標"}, {"week": "八", "topic": "數列與級數", "content": "大自然的數學密碼：Fibonacci sequence"}, {"week": "九", "topic": "排列組合", "content": "排列與組合面面觀"}, {"week": "十", "topic": "機率", "content": "來玩撲克牌吧：同花順的機率"}, {"week": "十一", "topic": "數據分析", "content": "藏在數據裡的人生解答"}, {"week": "十二", "topic": "三角函數的秘密", "content": "了解三角比與極座標內涵"}, {"week": "十三", "topic": "三角函數的秘密", "content": "弳度單位的定義與三角函數的圖形"}, {"week": "十四", "topic": "三角函數的秘密", "content": "波波相連到天邊：正餘弦疊合技巧"}, {"week": "十五", "topic": "三角函數的秘密", "content": "初探複數平面、複數的極式"}, {"week": "十六", "topic": "向量", "content": "藉由GGB作圖來透視向量的線性組合"}, {"week": "十七", "topic": "空間中的直線與平面", "content": "點.線.面的探究"}, {"week": "十八", "topic": "圓與球", "content": "地球經緯度的空間座標計算"}, {"week": "十九", "topic": "圓錐曲線", "content": "圓錐截痕探究"}, {"week": "二十", "topic": "綜合練習", "content": "綜合練習"}, {"week": "二十一", "topic": "期末考", "content": "期末考"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "數學家的小故事", "name_en": "", "授課年段": "三上", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "閱讀素養、國際教育", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA2.系統思考與問題解決,\nB溝通互動：\nB1.符號運用與溝通表達,\nC社會參與：\nC2.人際關係與團隊合作,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 3 健康力 (Health), 4 卓越力 (Superiority ),", "學習目標": "1.培養學生妥善運用資源、蒐集組織資料、與人溝通合作的能力。 2.藉由小組分享發表數學家的生平事蹟，使學生完整了解數學概念的源起和發展歷程，並清楚知道數學的目的在於解決生活中的現實問題。 3.透過學習單的輔助，加強學生在實際生活與相關單元/主題所需的數學知能間的連結。 4.增廣學生的數學視野，培育學生欣賞數學以簡馭繁的精神，與結構嚴謹完美的特質。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n課程介紹\n說明學習目標，指導學生蒐集資料，並進行小組分配\n二\n蒐集資料\n小組蒐集整理資料\n三\n報告編寫\n小組撰寫報告心得，並與老師討論學習單的設計\n四\n數與式\n1. Number rules the universe.（數統治著宇宙。）～畢達哥拉斯～ 2.絕對值函數與圖形\n五\n直線與圓\n1.圓是最完美的圖形。～但丁（義大利詩人¸Dante¸Alighieri¸1265～1321）～ 2.阿波羅尼奧斯圓（Apollonius circles）\n六\n段考週\n課程緩衝\n七\n多項式\n1.拉丁文 \"Cogito ergo sum\"，英文\"I think, therefore I am\"，（我思故我在）～笛卡爾～ 2.牛頓法求近似根\n八\n三角函數\n1.三角學在某種意義下，就像是望遠鏡的前身，它把遠在天邊的東西，拉近到可以測量的範圍。～Stanley L.Jaki《物理學的相關性》～ 2.無字證明、托勒密定理、海龍公式\n九\n數列\n1歸納、類推、大膽假設，透過新的猜測不斷修正，這是大自然提供的美妙技巧，也是追求真理的主要方法。～拉普拉斯～ 2.費氏數列\n十\n數據分析\n1.對正確的問題有近似的答案，勝過對錯的問題有精確的答案。～美國統計學學者杜奇(Tukey)～ 2.迴歸直線\n十一\n排列組合\n1.萬物皆數。～畢達哥拉斯～ 2.環狀排列\n十二\n段考週\n課程緩衝\n十三\n機率\n1.你信仰骰子的上帝，我卻信仰完備的定律與秩序。～愛因斯坦～ 2.電腦型彩券的中獎機率、生日問題\n十四\n指數與對數函數\n1.對數的發明延長了天文學家的壽命。～拉普拉斯～ 2.銀行存款、放射性物質衰變\n十五\n平面向週量\n1.數缺形少直覺，形缺數難入微。～華羅庚～ 2.克拉瑪公式、孟氏定理、西瓦定理\n十六\n空間向量\n1.數學不管多抽象，總有一天可以用在外在的真實世界。～Lobachevsky～ 2.錐體體積公式\n十七\n空間中平面與直線\n1.數學是上帝用來書寫宇宙的文字。～伽利略～ 2.空間中兩直線的公垂線\n十八\n矩陣\n1.數學是科學的大門和鑰匙～Roger Bacon～ 2.馬可夫鏈\n十九\n二十\n二十一\n二十二", "學習評量": "1.小組書面報告(含學習單設計) ：30% 2.小組上台發表：30% 3.個人學習單繳交：20% 4.個人課堂參與發言：20%", "備註": "", "schedule": [{"week": "一", "topic": "課程介紹", "content": "說明學習目標，指導學生蒐集資料，並進行小組分配"}, {"week": "二", "topic": "蒐集資料", "content": "小組蒐集整理資料"}, {"week": "三", "topic": "報告編寫", "content": "小組撰寫報告心得，並與老師討論學習單的設計"}, {"week": "四", "topic": "數與式", "content": "1. Number rules the universe.（數統治著宇宙。）～畢達哥拉斯～ 2.絕對值函數與圖形"}, {"week": "五", "topic": "直線與圓", "content": "1.圓是最完美的圖形。～但丁（義大利詩人¸Dante¸Alighieri¸1265～1321）～ 2.阿波羅尼奧斯圓（Apollonius circles）"}, {"week": "六", "topic": "段考週", "content": "課程緩衝"}, {"week": "七", "topic": "多項式", "content": "1.拉丁文 \"Cogito ergo sum\"，英文\"I think, therefore I am\"，（我思故我在）～笛卡爾～ 2.牛頓法求近似根"}, {"week": "八", "topic": "三角函數", "content": "1.三角學在某種意義下，就像是望遠鏡的前身，它把遠在天邊的東西，拉近到可以測量的範圍。～Stanley L.Jaki《物理學的相關性》～ 2.無字證明、托勒密定理、海龍公式"}, {"week": "九", "topic": "數列", "content": "1歸納、類推、大膽假設，透過新的猜測不斷修正，這是大自然提供的美妙技巧，也是追求真理的主要方法。～拉普拉斯～ 2.費氏數列"}, {"week": "十", "topic": "數據分析", "content": "1.對正確的問題有近似的答案，勝過對錯的問題有精確的答案。～美國統計學學者杜奇(Tukey)～ 2.迴歸直線"}, {"week": "十一", "topic": "排列組合", "content": "1.萬物皆數。～畢達哥拉斯～ 2.環狀排列"}, {"week": "十二", "topic": "段考週", "content": "課程緩衝"}, {"week": "十三", "topic": "機率", "content": "1.你信仰骰子的上帝，我卻信仰完備的定律與秩序。～愛因斯坦～ 2.電腦型彩券的中獎機率、生日問題"}, {"week": "十四", "topic": "指數與對數函數", "content": "1.對數的發明延長了天文學家的壽命。～拉普拉斯～ 2.銀行存款、放射性物質衰變"}, {"week": "十五", "topic": "平面向週量", "content": "1.數缺形少直覺，形缺數難入微。～華羅庚～ 2.克拉瑪公式、孟氏定理、西瓦定理"}, {"week": "十六", "topic": "空間向量", "content": "1.數學不管多抽象，總有一天可以用在外在的真實世界。～Lobachevsky～ 2.錐體體積公式"}, {"week": "十七", "topic": "空間中平面與直線", "content": "1.數學是上帝用來書寫宇宙的文字。～伽利略～ 2.空間中兩直線的公垂線"}, {"week": "十八", "topic": "矩陣", "content": "1.數學是科學的大門和鑰匙～Roger Bacon～ 2.馬可夫鏈"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "韓語", "name_en": "Korean", "授課年段": "三上、三下", "學分總數": "2", "課程屬性": "通識性課程", "議題融入": "多元文化、國際教育", "師資來源": "外聘(其他)", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進,\nB溝通互動：\nB1.符號運用與溝通表達,\nC社會參與：\nC3.多元文化與國際理解,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "文法學習與表現以及會話練習", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n韓語介紹：子音與母音\n文法學習與會話\n二\n收尾音 (받침)的發音\n文法學習與會話\n三\n發音的不規則(발음법칙)\n文法學習與會話\n四\n練習發音\n文法學習與會話\n五\n自我介紹\n文法學習與會話\n六\n日常生活，天氣以及溫度\n文法學習與會話\n七\n物品名稱，購物對話\n文法學習與會話\n八\n日常生活，到餐廳點餐，點外送使用的用語\n文法學習與會話\n九\n介紹場所\n文法學習與會話\n十\n日常生活，如何購物，搭乘交通工具，旅遊\n文法學習與會話\n十一\n數字&星期\n文法學習與會話\n十二\n休閒活動表達\n文法學習與會話\n十三\n家族介紹\n文法學習與會話\n十四\n約會與預約時間\n文法學習與會話\n十五\n生病時如何看醫生\n文法學習與會話\n十六\n電話禮儀\n文法學習與會話\n十七\n送禮物禮儀\n文法學習與會話\n十八\n旅遊景點介紹\n文法學習與會話\n十九\n二十\n二十一\n二十二", "學習評量": "考試出席與上課表現 30%\n作業與測驗 70%", "備註": "", "schedule": [{"week": "一", "topic": "韓語介紹：子音與母音", "content": "文法學習與會話"}, {"week": "二", "topic": "收尾音 (받침)的發音", "content": "文法學習與會話"}, {"week": "三", "topic": "發音的不規則(발음법칙)", "content": "文法學習與會話"}, {"week": "四", "topic": "練習發音", "content": "文法學習與會話"}, {"week": "五", "topic": "自我介紹", "content": "文法學習與會話"}, {"week": "六", "topic": "日常生活，天氣以及溫度", "content": "文法學習與會話"}, {"week": "七", "topic": "物品名稱，購物對話", "content": "文法學習與會話"}, {"week": "八", "topic": "日常生活，到餐廳點餐，點外送使用的用語", "content": "文法學習與會話"}, {"week": "九", "topic": "介紹場所", "content": "文法學習與會話"}, {"week": "十", "topic": "日常生活，如何購物，搭乘交通工具，旅遊", "content": "文法學習與會話"}, {"week": "十一", "topic": "數字&星期", "content": "文法學習與會話"}, {"week": "十二", "topic": "休閒活動表達", "content": "文法學習與會話"}, {"week": "十三", "topic": "家族介紹", "content": "文法學習與會話"}, {"week": "十四", "topic": "約會與預約時間", "content": "文法學習與會話"}, {"week": "十五", "topic": "生病時如何看醫生", "content": "文法學習與會話"}, {"week": "十六", "topic": "電話禮儀", "content": "文法學習與會話"}, {"week": "十七", "topic": "送禮物禮儀", "content": "文法學習與會話"}, {"week": "十八", "topic": "旅遊景點介紹", "content": "文法學習與會話"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "蘋果樹下的人生", "name_en": "", "授課年段": "三上、三下", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "閱讀素養", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進, A2.系統思考與問題解決,\nB溝通互動：\nB1.符號運用與溝通表達, B2.科技資訊與媒體素養,\nC社會參與：\nC3.多元文化與國際理解,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom),", "學習目標": "1.瞭解物理學家的貢獻\n探討霍金和牛頓在光學與力學方面的重大貢獻，並認識其對物理學發展的影響。\n2.掌握基本光學與力學概念\n學習光的反射、折射等基本原理，以及力與運動的基本定律，並能應用於日常現象的解釋。\n3.培養科學精神\n透過理解偉大物理學家的研究歷程，培養批判性思維與探索未知的精神。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n預備週\n分組與課程介紹\n二\n分組挑戰\n由各領域主要物理學家生平介紹、海報製作\n三\n科學家搶答計時賽\n將上週內容換成與人物對應測驗\n四\n影片欣賞\n霍金故事介紹「愛的萬物論」\n五\n影片欣賞分享\n分組補充霍金在物理上的貢獻\n六\n愛因斯坦與相對論1\n上課用書「高中生的七堂easy相對論」\n分單元同學報告與老師解釋說明。\n七\n分組報告1\n分組報告\n八\n愛因斯坦與相對論2\n古典力學中的相對運動\n九\n分組報告2\n分組報告\n十\n愛因斯坦與相對論3\n從載流導線到光速不變\n十一\n分組報告3\n分組報告\n十二\n愛因斯坦與相對論4\n狹義相對論中的運動學\n十三\n分組報告4\n分組報告\n十四\n愛因斯坦與相對論5\n都卜勒紅移與勞倫茲變換\n十五\n分組報告5\n分組報告\n十六\n學習歷程製作\n學習歷程製作\n十七\n學習歷程製作\n學習歷程製作\n十八\n學習歷程製作\n學習歷程製作\n十九\n二十\n二十一\n二十二", "學習評量": "1.分組活動(30%)：內容：生平簡介、事蹟、理論貢獻(40%)，小故事、趣事(60%)\n2.分組報告(30%)：報告內容(包含說明、教材、板書、上台報告……等 等) 海報上台報告(60%)，電子報告(40%)。\n3.影片觀賞學習單(40%)：問題與心得感想。", "備註": "", "schedule": [{"week": "一", "topic": "預備週", "content": "分組與課程介紹"}, {"week": "二", "topic": "分組挑戰", "content": "由各領域主要物理學家生平介紹、海報製作"}, {"week": "三", "topic": "科學家搶答計時賽", "content": "將上週內容換成與人物對應測驗"}, {"week": "四", "topic": "影片欣賞", "content": "霍金故事介紹「愛的萬物論」"}, {"week": "五", "topic": "影片欣賞分享", "content": "分組補充霍金在物理上的貢獻"}, {"week": "六", "topic": "愛因斯坦與相對論1", "content": "上課用書「高中生的七堂easy相對論」"}, {"week": "七", "topic": "分組報告1", "content": "分組報告"}, {"week": "八", "topic": "愛因斯坦與相對論2", "content": "古典力學中的相對運動"}, {"week": "九", "topic": "分組報告2", "content": "分組報告"}, {"week": "十", "topic": "愛因斯坦與相對論3", "content": "從載流導線到光速不變"}, {"week": "十一", "topic": "分組報告3", "content": "分組報告"}, {"week": "十二", "topic": "愛因斯坦與相對論4", "content": "狹義相對論中的運動學"}, {"week": "十三", "topic": "分組報告4", "content": "分組報告"}, {"week": "十四", "topic": "愛因斯坦與相對論5", "content": "都卜勒紅移與勞倫茲變換"}, {"week": "十五", "topic": "分組報告5", "content": "分組報告"}, {"week": "十六", "topic": "學習歷程製作", "content": "學習歷程製作"}, {"week": "十七", "topic": "學習歷程製作", "content": "學習歷程製作"}, {"week": "十八", "topic": "學習歷程製作", "content": "學習歷程製作"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "生活與數學桌遊", "name_en": "", "授課年段": "三下", "學分總數": "2", "課程屬性": "跨領域/科目統整", "議題融入": "閱讀素養", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA2.系統思考與問題解決, A3.規劃執行與創新應變,\nB溝通互動：\nB1.符號運用與溝通表達, B3.藝術涵養與美感素養,\nC社會參與：\nC1.道德實踐與公民意識, C2.人際關係與團隊合作, C3.多元文化與國際理解,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 4 卓越力 (Superiority ),", "學習目標": "1.提升學生解決問題的能力：培養邏輯思考能力、觀察力及反應力，提昇對空間推理的能力，增進圖形認知能力及圖像組織能力，培養瞬間記憶力，訓練手眼協調能力與專注力(IQ)。\n2.增強學生團隊合作的意識：能夠控制自我情緒、提昇挫折忍受度，提升自信心，培養輪流等待的耐心，學習與人溝通合作 (EQ)。\n3.學生能將高中數學理論融入遊戲，也可從遊戲規則反過來設計高中數學問題：提昇事物的敏覺力、創造思考的能力及應變力，建立清楚的方向感，激發好奇心與挑戰心 (CQ)。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n哆寶\n反應、集合、排列組合\n二\nSET\n反應、集合、排列組合\n三\n閃靈快手\n反應、集合、排列組合\n四\n璀璨寶石\n策略、集合、數據分析\n五\n牛頭王\n策略、邏輯推理、機率\n六\n演化論\n策略、反應、邏輯、排列組合\n七\n駱駝大賽\n策略、幾何、集合、機率、函數、數據分析\n八\n大爆格\n策略、集合、排列組合、數列\n九\n德國心臟病\n策略、反應、排列組合、機率\n十\n邏輯對決\n策略、邏輯推理、資料分析\n十一\n卡卡頌\n策略、邏輯、數據分析\n十二\n鐵道任務\n策略、機率、資料分析\n十三\n拉密\n機率、資料分析、數字排列\n十四\n石器時代\n機率、數據分析、統整\n十五\n期末心得報告\n設計並製作遊戲道具\n十六\n期末心得報告\n設計並製作遊戲道具\n十七\n期末心得報告\n各組上台解說所設計的遊戲\n十八\n期末心得報告\n各組上台解說所設計的遊戲\n十九\n二十\n二十一\n二十二", "學習評量": "1.分組上台解說遊戲規則：40%\n2.課堂參與學習態度：30%\n3.期末心得報告：30%", "備註": "", "schedule": [{"week": "一", "topic": "哆寶", "content": "反應、集合、排列組合"}, {"week": "二", "topic": "SET", "content": "反應、集合、排列組合"}, {"week": "三", "topic": "閃靈快手", "content": "反應、集合、排列組合"}, {"week": "四", "topic": "璀璨寶石", "content": "策略、集合、數據分析"}, {"week": "五", "topic": "牛頭王", "content": "策略、邏輯推理、機率"}, {"week": "六", "topic": "演化論", "content": "策略、反應、邏輯、排列組合"}, {"week": "七", "topic": "駱駝大賽", "content": "策略、幾何、集合、機率、函數、數據分析"}, {"week": "八", "topic": "大爆格", "content": "策略、集合、排列組合、數列"}, {"week": "九", "topic": "德國心臟病", "content": "策略、反應、排列組合、機率"}, {"week": "十", "topic": "邏輯對決", "content": "策略、邏輯推理、資料分析"}, {"week": "十一", "topic": "卡卡頌", "content": "策略、邏輯、數據分析"}, {"week": "十二", "topic": "鐵道任務", "content": "策略、機率、資料分析"}, {"week": "十三", "topic": "拉密", "content": "機率、資料分析、數字排列"}, {"week": "十四", "topic": "石器時代", "content": "機率、數據分析、統整"}, {"week": "十五", "topic": "期末心得報告", "content": "設計並製作遊戲道具"}, {"week": "十六", "topic": "期末心得報告", "content": "設計並製作遊戲道具"}, {"week": "十七", "topic": "期末心得報告", "content": "各組上台解說所設計的遊戲"}, {"week": "十八", "topic": "期末心得報告", "content": "各組上台解說所設計的遊戲"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "看電影聊數學", "name_en": "", "授課年段": "三下", "學分總數": "2", "課程屬性": "專題探究", "議題融入": "生命、能源、防災", "師資來源": "校內單科", "課綱核心素養": "A自主行動：\nA1.身心素質與自我精進,\nB溝通互動：\nB2.科技資訊與媒體素養,\nC社會參與：\nC2.人際關係與團隊合作,", "學生圖像": "1發展力 (Development), 2 智慧力 (Wisdom), 3 健康力 (Health), 4 卓越力 (Superiority ),", "學習目標": "利用電影欣賞幫助學生看見生活中的數學。", "教學大綱": "週次/序\n單元/主題\n內容綱要\n一\n《模仿遊戲》\nPART 1\n二\n《模仿遊戲》\nPART 2＆學習單撰寫\n三\n議題討論\n討論奇謎機加密系統的原理與應用\n四\n《關鍵少數》\nPART 1\n五\n《關鍵少數》\nPART 2＆學習單撰寫\n六\n議題討論\n微分的概念初探\n七\n《十月的天空》\nPART 1\n八\n《十月的天空》\nPART 2＆學習單撰寫\n九\n議題討論\n科學與數學的關係\n十\n《魔球》\nPART 1\n十一\n《魔球》\nPART 2＆學習單撰寫\n十二\n議題討論\n數據分析與經驗法則\n十三\n《美麗境界》\nPART 1\n十四\n《美麗境界》\nPART 2＆學習單撰寫\n十五\n議題討論\n零和賽局\n十六\n《心靈捕手》\nPART 1\n十七\n《心靈捕手》\nPART 2＆學習單撰寫\n十八\n議題討論\n矩陣的概念與應用\n十九\n二十\n二十一\n二十二", "學習評量": "", "備註": "1. 學習態度：50%。。 2. 課堂參與：50%。", "schedule": [{"week": "一", "topic": "《模仿遊戲》", "content": "PART 1"}, {"week": "二", "topic": "《模仿遊戲》", "content": "PART 2＆學習單撰寫"}, {"week": "三", "topic": "議題討論", "content": "討論奇謎機加密系統的原理與應用"}, {"week": "四", "topic": "《關鍵少數》", "content": "PART 1"}, {"week": "五", "topic": "《關鍵少數》", "content": "PART 2＆學習單撰寫"}, {"week": "六", "topic": "議題討論", "content": "微分的概念初探"}, {"week": "七", "topic": "《十月的天空》", "content": "PART 1"}, {"week": "八", "topic": "《十月的天空》", "content": "PART 2＆學習單撰寫"}, {"week": "九", "topic": "議題討論", "content": "科學與數學的關係"}, {"week": "十", "topic": "《魔球》", "content": "PART 1"}, {"week": "十一", "topic": "《魔球》", "content": "PART 2＆學習單撰寫"}, {"week": "十二", "topic": "議題討論", "content": "數據分析與經驗法則"}, {"week": "十三", "topic": "《美麗境界》", "content": "PART 1"}, {"week": "十四", "topic": "《美麗境界》", "content": "PART 2＆學習單撰寫"}, {"week": "十五", "topic": "議題討論", "content": "零和賽局"}, {"week": "十六", "topic": "《心靈捕手》", "content": "PART 1"}, {"week": "十七", "topic": "《心靈捕手》", "content": "PART 2＆學習單撰寫"}, {"week": "十八", "topic": "議題討論", "content": "矩陣的概念與應用"}, {"week": "二十二", "topic": "", "content": ""}]}, {"name": "「詠」往直前：Prompt 咒語實習生", "name_en": "Keep Prompting On: The AI Whisperer in Training", "授課年段": "二上二下", "學分總數": "2", "課程屬性": "多元選修", "議題融入": "AI 與社會情緒學習 (SEL)、科技素養、AI 倫理", "師資來源": "校內單科", "學習目標": "這份課程旨在讓學生掌握 AI 技術原理與實作，並透過哲學工具深思演算法偏誤、隱私及責任歸屬等倫理困境，建立具批判性的數位素養與實踐準則。", "學習評量": "課程討論參與度 40%、專案完成度 50%、出席率 10%", "schedule": [{"week": "一", "topic": "AI 的力量與責任", "content": "LLM 簡介、Google AI Studio 基本對話、蓋吉斯之戒：AI 隱蔽性與選擇"}, {"week": "二", "topic": "文字接龍的本質", "content": "Token 機率預測與 AI 幻覺、基礎 Prompt 撰寫練習"}, {"week": "三", "topic": "技術從不中立", "content": "技術設計內建社會偏好、測試 Persona 系統指令"}, {"week": "四", "topic": "創意與精準的平衡", "content": "Temperature 與 Top-P 參數解析"}, {"week": "五", "topic": "打造數位化身", "content": "AI 擬人化與情感投射、AI 伴侶是否強化性別刻板印象？"}, {"week": "六", "topic": "視覺解析與隱私", "content": "CNN 與多模態影像辨識、隱私權本質與資料囤積謬誤"}, {"week": "七", "topic": "AI 安全與防禦", "content": "AI Safety 防傷害 vs Security 防攻擊、測試 Prompt Injection"}, {"week": "八", "topic": "物理 AI 與自駕車", "content": "Embodied AI 面對物理不確定性、演算法電車難題跨文化排序"}, {"week": "九", "topic": "期中回顧與溫書", "content": "總結基礎篇核心概念"}, {"week": "十", "topic": "演算法偏誤實錄", "content": "ML 從不平衡資料學習偏誤、Amazon 偏誤案"}, {"week": "十一", "topic": "程序與實質正義", "content": "群體預測與個體權利衝突、A-level 成績爭議"}, {"week": "十二", "topic": "責任歸屬與多手問題", "content": "AI 決策責任歸屬困境、Uber 自駕車撞人案道德責任"}, {"week": "十三", "topic": "深偽技術與真相", "content": "生成式 AI 製造逼真影音、識別 AI 影音與浮水印概念"}, {"week": "十四", "topic": "AI 與民主防禦", "content": "迴聲室與 Microtargeting 極化、數位民主韌性"}, {"week": "十五", "topic": "從介面走向應用 API", "content": "Get Code 功能與 API 串接概念"}, {"week": "十六", "topic": "AGI 與存在風險", "content": "AGI 定義與正交性論題、控制權喪失威脅"}, {"week": "十七", "topic": "期末審議專題(一)", "content": "期末分組報告：技術與倫理評估"}, {"week": "十八", "topic": "期末審議專案(二)", "content": "期末分組報告：技術與倫理評估"}, {"week": "十九", "topic": "期末審議專案(三)", "content": "期末分組報告：技術與倫理評估"}]}, {"name": "人工智慧倫理 I：倫理批判思考工具到公平", "name_en": "AI Ethics I: From Ethical Critical Thinking Tools to Fairness", "授課年段": "一年級至三年級", "學分總數": "2", "課程屬性": "多元選修", "師資來源": "外聘（大學）", "學習評量": "課堂參與討論（含出席）50%、書面作業 20%、期末（小組）報告 30%"}, {"name": "人工智慧倫理 II：安全、隱私與社會影響", "name_en": "AI Ethics II: Safety, Privacy, and Social Impact", "授課年段": "一年級至三年級", "學分總數": "2", "課程屬性": "多元選修", "師資來源": "外聘（大學）", "學習評量": "課堂參與討論（含出席）50%、書面作業 20%、期末（小組）報告 30%"}];
+
+  let filtered = [...COURSES];
+
+  function filterCourses(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      filtered = [...COURSES];
+    } else {
+      filtered = COURSES.filter(c => 
+        (c.name || '').toLowerCase().includes(q) ||
+        (c.name_en || '').toLowerCase().includes(q) ||
+        (c['課程屬性'] || '').toLowerCase().includes(q) ||
+        (c['學習目標'] || '').toLowerCase().includes(q) ||
+        (c['議題融入'] || '').toLowerCase().includes(q)
       );
     }
+    renderGrid();
+  }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+  function renderGrid() {
+    const grid = document.getElementById('courses-grid');
+    const noResult = document.getElementById('no-result');
+    const count = document.getElementById('result-count');
+
+    count.textContent = filtered.length === COURSES.length 
+      ? `全部 ${COURSES.length} 門課程`
+      : `找到 ${filtered.length} 門課程`;
+
+    if (filtered.length === 0) {
+      grid.innerHTML = '';
+      noResult.classList.remove('hidden');
+      return;
+    }
+    noResult.classList.add('hidden');
+
+    grid.innerHTML = filtered.map((c, idx) => {
+      const realIdx = COURSES.indexOf(c);
+      const attr = c['課程屬性'] || '多元選修';
+      const grade = c['授課年段'] || '';
+      const credits = c['學分總數'] || '';
+      const scheduleLen = c.schedule ? c.schedule.filter(w => w.topic && w.topic !== '期中考' && w.topic !== '期末考' && w.topic !== '期末考').length : 0;
+      
+      const attrColor = attr.includes('專題') ? 'bg-blue-100 text-blue-700 border-blue-200' : 
+                        attr.includes('加深') ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                        'bg-amber-100 text-amber-700 border-amber-200';
+
+      return `
+        <div onclick="showDetail(${realIdx})" 
+          class="course-card bg-white rounded-2xl border border-stone-200 p-5 cursor-pointer hover:border-amber-400 hover:shadow-md transition-all duration-200 group">
+          <div class="flex items-start justify-between mb-3">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${attrColor}">${attr}</span>
+            <i class="fas fa-arrow-right text-stone-300 group-hover:text-amber-600 transition-colors mt-0.5"></i>
+          </div>
+          <h3 class="font-extrabold text-stone-800 text-base mb-1 group-hover:text-amber-700 transition-colors leading-snug">${c.name}</h3>
+          ${c.name_en ? `<p class="text-xs text-stone-400 mb-3 italic">${c.name_en}</p>` : '<div class="mb-3"></div>'}
+          <div class="bg-[#FAF9F6] rounded-xl p-3 border border-stone-100 space-y-1.5 text-xs">
+            ${grade ? `<div class="flex items-center text-stone-600"><i class="fas fa-user-graduate w-4 text-stone-400 mr-1.5"></i>${grade}</div>` : ''}
+            ${credits ? `<div class="flex items-center text-stone-600"><i class="fas fa-star w-4 text-stone-400 mr-1.5"></i>${credits} 學分</div>` : ''}
+            ${scheduleLen > 0 ? `<div class="flex items-center text-stone-600"><i class="fas fa-list-ul w-4 text-stone-400 mr-1.5"></i>${scheduleLen} 週教學內容</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function showDetail(idx) {
+    const c = COURSES[idx];
+    document.getElementById('list-view').classList.add('hidden');
+    const dv = document.getElementById('detail-view');
+    dv.classList.remove('hidden');
+    dv.classList.add('fade-in');
+
+    document.getElementById('bc-sep').classList.remove('hidden');
+    const bcCourse = document.getElementById('bc-course');
+    bcCourse.classList.remove('hidden');
+    bcCourse.textContent = c.name;
+
+    const attr = c['課程屬性'] || '多元選修';
+    const attrColor = attr.includes('專題') ? 'bg-blue-100 text-blue-700 border-blue-200' : 
+                      attr.includes('加深') ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                      'bg-amber-100 text-amber-700 border-amber-200';
+
+    const infoFields = [
+      ['授課年段', 'fa-user-graduate'],
+      ['學分總數', 'fa-star'],
+      ['課程屬性', 'fa-tag'],
+      ['議題融入', 'fa-lightbulb'],
+      ['師資來源', 'fa-chalkboard-teacher'],
+    ];
+
+    const infoCards = infoFields
+      .filter(([k]) => c[k])
+      .map(([k, icon]) => `
+        <div class="bg-[#FAF9F6] border border-stone-100 rounded-xl p-4">
+          <div class="text-xs text-stone-400 font-medium mb-1"><i class="fas ${icon} mr-1"></i>${k}</div>
+          <div class="font-bold text-stone-800 text-sm">${c[k]}</div>
+        </div>`).join('');
+
+    const scheduleHtml = c.schedule && c.schedule.length > 0 ? `
+      <div class="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden mb-6">
+        <div class="bg-stone-50 px-6 py-4 border-b border-stone-200">
+          <h3 class="text-lg font-bold text-stone-800 flex items-center">
+            <i class="fas fa-calendar-alt text-amber-600 mr-2"></i> 教學大綱
+          </h3>
+        </div>
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-sm min-w-[500px]">
+            <thead>
+              <tr class="bg-stone-50 border-b border-stone-200 text-stone-500 text-xs uppercase tracking-wider">
+                <th class="px-6 py-3 text-left font-bold w-16">週次</th>
+                <th class="px-6 py-3 text-left font-bold w-1/3">單元主題</th>
+                <th class="px-6 py-3 text-left font-bold">內容綱要</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-stone-100">
+              ${c.schedule.map(w => `
+                <tr class="week-row hover:bg-amber-50/30 transition-colors">
+                  <td class="px-6 py-3 font-bold text-amber-700 whitespace-nowrap">${w.week}</td>
+                  <td class="px-6 py-3 font-medium text-stone-800">${w.topic}</td>
+                  <td class="px-6 py-3 text-stone-600 leading-relaxed">${w.content}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>` : '';
+
+    const goalsHtml = c['學習目標'] ? `
+      <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 mb-6">
+        <h3 class="text-lg font-bold text-stone-800 mb-3 flex items-center">
+          <i class="fas fa-bullseye text-amber-600 mr-2"></i> 學習目標
+        </h3>
+        <div class="text-stone-600 leading-relaxed whitespace-pre-line text-sm">${c['學習目標']}</div>
+      </div>` : '';
+
+    const coreHtml = c['課綱核心素養'] ? `
+      <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 mb-6">
+        <h3 class="text-lg font-bold text-stone-800 mb-3 flex items-center">
+          <i class="fas fa-award text-amber-600 mr-2"></i> 課綱核心素養
+        </h3>
+        <div class="text-stone-600 leading-relaxed whitespace-pre-line text-sm">${c['課綱核心素養']}</div>
+      </div>` : '';
+
+    const evalHtml = c['學習評量'] ? `
+      <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 mb-6">
+        <h3 class="text-lg font-bold text-stone-800 mb-3 flex items-center">
+          <i class="fas fa-clipboard-check text-amber-600 mr-2"></i> 學習評量
+        </h3>
+        <div class="text-stone-600 leading-relaxed whitespace-pre-line text-sm">${c['學習評量']}</div>
+      </div>` : '';
+
+    const remarkHtml = c['備註'] ? `
+      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-6">
+        <h3 class="text-lg font-bold text-amber-800 mb-3 flex items-center">
+          <i class="fas fa-sticky-note text-amber-600 mr-2"></i> 備註
+        </h3>
+        <div class="text-amber-700 leading-relaxed whitespace-pre-line text-sm">${c['備註']}</div>
+      </div>` : '';
+
+    document.getElementById('detail-content').innerHTML = `
+      <!-- 課程標題卡 -->
+      <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 md:p-8 mb-6 relative overflow-hidden">
+        <div class="absolute -right-8 -bottom-8 text-stone-100 opacity-50 pointer-events-none">
+          <i class="fas fa-book-open text-[150px]"></i>
+        </div>
+        <div class="relative z-10">
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border mb-3 ${attrColor}">${attr}</span>
+          <h2 class="text-2xl md:text-3xl font-extrabold text-stone-800 mb-1">${c.name}</h2>
+          ${c.name_en ? `<p class="text-stone-400 italic text-sm mb-5">${c.name_en}</p>` : '<div class="mb-5"></div>'}
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            ${infoCards}
+          </div>
+        </div>
+      </div>
+
+      ${goalsHtml}
+      ${coreHtml}
+      ${scheduleHtml}
+      ${evalHtml}
+      ${remarkHtml}
+    `;
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function showList() {
+    document.getElementById('detail-view').classList.add('hidden');
+    document.getElementById('list-view').classList.remove('hidden');
+    document.getElementById('bc-sep').classList.add('hidden');
+    document.getElementById('bc-course').classList.add('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // 初始化
+  renderGrid();
   </script>
 </body>
 </html>
